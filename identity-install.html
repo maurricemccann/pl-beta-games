@@ -1,0 +1,310 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Identity Install — PL Beta Games</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @font-face {
+      font-family: 'PLHand';
+      src: url('fonts/MaurriceMccannPsychedHandwrit-Regular.otf') format('opentype'),
+           url('fonts/MaurriceMccannPsychedHandwrit-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    html, body {
+      width: 100%; min-height: 100%;
+      background: #F0EAF8;
+      overflow-x: hidden;
+    }
+
+    #canvas-host {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+    }
+    #canvas-host canvas { display: block; }
+
+    .nav-bar {
+      position: fixed;
+      top: 24px; left: 24px;
+      z-index: 10;
+    }
+    .nav-link {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      color: #7A6090;
+      text-decoration: none;
+      text-transform: uppercase;
+    }
+    .nav-link:hover { color: #6B3FA8; }
+
+    #ui-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      padding-bottom: 120px;
+    }
+
+    #statements {
+      pointer-events: all;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: min(480px, 88vw);
+    }
+
+    .stmt-btn {
+      padding: 11px 18px;
+      background: rgba(8,8,8,0.7);
+      border: 1px solid #C4A8E8;
+      color: #8B7336;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+      backdrop-filter: blur(4px);
+    }
+    .stmt-btn:hover {
+      border-color: #4A2880;
+      color: #6B3FA8;
+      background: rgba(201,168,76,0.06);
+    }
+    .stmt-btn.abundance { border-color: #6B3FA8; color: #F0D878; background: rgba(201,168,76,0.1); }
+    .stmt-btn.scarcity  { border-color: #5c2020; color: #a04040; background: rgba(160,60,60,0.08); }
+
+    #plhand-end {
+      position: fixed;
+      bottom: 72px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      font-family: 'PLHand', cursive;
+      font-size: clamp(18px, 3.5vw, 26px);
+      color: #6B3FA8;
+      opacity: 0;
+      transition: opacity 0.8s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+  </style>
+  <!-- PL theme injection: reads accent/glyph from URL params or sessionStorage -->
+  <script id="pl-theme">
+  (function(){
+    function hexToRgb(h){h=h.replace(/^#/,'');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function clamp(v){return Math.max(0,Math.min(255,Math.round(v)));}
+    function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(x){return clamp(x).toString(16).padStart(2,'0')}).join('');}
+    function lighten(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]+(255-c[0])*pct,c[1]+(255-c[1])*pct,c[2]+(255-c[2])*pct);}
+    function darken(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]*(1-pct),c[1]*(1-pct),c[2]*(1-pct));}
+    function isHex(s){return /^#?[0-9a-fA-F]{6}$/.test(s);}
+    function applyAccent(accent){
+      var h=accent.startsWith('#')?accent:'#'+accent;
+      var el=document.documentElement;
+      el.style.setProperty('--gold',h);
+      el.style.setProperty('--gold-bright',lighten(h,0.18));
+      el.style.setProperty('--gold-light',lighten(h,0.14));
+      el.style.setProperty('--gold-dim',darken(h,0.25));
+      el.style.setProperty('--gold-muted',darken(h,0.12));
+    }
+    var params=new URLSearchParams(window.location.search);
+    var accent=params.get('accent')||'';
+    var glyph=params.get('glyph')||'';
+    if(accent&&isHex(accent)){
+      sessionStorage.setItem('pl_accent',accent);
+      applyAccent(accent);
+    } else {
+      var sa=sessionStorage.getItem('pl_accent');
+      if(sa&&isHex(sa)){applyAccent(sa);}
+    }
+    if(glyph){sessionStorage.setItem('pl_glyph',glyph);}
+    window.PL_GLYPH=glyph||sessionStorage.getItem('pl_glyph')||'';
+    function propagateLinks(){
+      var a=sessionStorage.getItem('pl_accent');
+      var g=sessionStorage.getItem('pl_glyph');
+      if(!a&&!g)return;
+      var links=document.querySelectorAll('a[href]');
+      links.forEach(function(el){
+        var href=el.getAttribute('href');
+        if(!href||href.startsWith('http')||href.startsWith('//')||href.startsWith('#'))return;
+        if(!href.endsWith('.html'))return;
+        if(el.dataset.plThemed)return;
+        el.dataset.plThemed='1';
+        var url=new URL(href,window.location.href);
+        if(a)url.searchParams.set('accent',a);
+        if(g)url.searchParams.set('glyph',g);
+        el.setAttribute('href',url.pathname.split('/').pop()+'?'+url.searchParams.toString());
+      });
+    }
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',propagateLinks);}else{propagateLinks();}
+  })();
+  </script><script src="pl-game-data.js"></script>
+<script src="pl-points.js" defer></script></head>
+<body>
+<div id="game-instructions" style="position:fixed;inset:0;background:#F0EAF8;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;font-family:'PLHand',cursive;">
+  <div style="max-width:500px;text-align:center;">
+    <p style="font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:#6B3FA8;margin-bottom:16px;">How to Play</p>
+    <h2 style="font-size:clamp(26px,4vw,40px);color:#0A0A0A;margin-bottom:20px;line-height:1.2;font-weight:400;">Identity Install</h2>
+    <p style="font-size:clamp(16px,2.5vw,20px);color:#3A1880;line-height:1.7;margin-bottom:36px;">Identity is not discovered. It is installed. Select the architecture. Begin the process. What you install becomes what you are.</p>
+    <button id="begin-btn" style="font-family:'PLHand',cursive;font-size:20px;background:#6B3FA8;color:#F0EAF8;border:none;padding:14px 40px;cursor:pointer;letter-spacing:0.1em;">Begin</button>
+  </div>
+</div>
+<script>
+(function(){
+  var panel=document.getElementById('game-instructions');
+  if(!panel)return;
+  if(sessionStorage.getItem('pl_seen_'+location.pathname)){panel.style.display='none';return;}
+  document.getElementById('begin-btn').addEventListener('click',function(){
+    panel.style.display='none';
+    sessionStorage.setItem('pl_seen_'+location.pathname,'1');
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){panel.style.display='none';sessionStorage.setItem('pl_seen_'+location.pathname,'1');}
+  });
+})();
+</script>
+  <div id="canvas-host"></div>
+  <nav class="nav-bar"><a class="nav-link" href="index.html">← Games</a></nav>
+  <div id="ui-layer">
+    <div id="statements"></div>
+  </div>
+  <div id="plhand-end">Identity installed.</div>
+
+<script>
+  const ABUNDANCE_STMTS = [
+    "I am prepared for luxury.",
+    "I am in control of my reality.",
+    "What I hold in mind becomes real.",
+    "I produce despite the conditions.",
+    "The practice compounds.",
+    "I belong to abundance.",
+    "My curves will cover the world.",
+    "I act from certainty, not hope.",
+    "I am the monarch of my timeline.",
+    "Growth is the most luxurious act.",
+  ];
+  const SCARCITY_STMTS = [
+    "I am not ready yet.",
+    "The conditions are wrong.",
+    "I don't have enough.",
+    "It won't work for me.",
+    "I should wait for permission.",
+    "This is not the right time.",
+    "Others have what I don't.",
+    "I am behind.",
+  ];
+
+  const ALL = [
+    ...ABUNDANCE_STMTS.map(t => ({ text: t, type: 'abundance' })),
+    ...SCARCITY_STMTS.map(t => ({ text: t, type: 'scarcity'  })),
+  ].sort(() => Math.random() - 0.5);
+
+  const elHand = document.getElementById('plhand-end');
+  const elStmts = document.getElementById('statements');
+  let abundance = 0;
+  let totalClicks = 0;
+
+  // render buttons
+  ALL.forEach(item => {
+    const btn = document.createElement('button');
+    btn.className = 'stmt-btn';
+    btn.textContent = item.text;
+    btn.dataset.type = item.type;
+    btn.addEventListener('click', () => {
+      btn.classList.toggle(item.type);
+      if (btn.classList.contains(item.type)) {
+        if (item.type === 'abundance') abundance++;
+        totalClicks++;
+      } else {
+        if (item.type === 'abundance') abundance--;
+        totalClicks--;
+      }
+      // signal canvas
+      window._identityState = { abundance, total: ABUNDANCE_STMTS.length };
+      if (abundance >= 7 && !window._handShown) {
+        window._handShown = true;
+        elHand.style.opacity = '1';
+        setTimeout(() => { elHand.style.opacity = '0'; }, 3000);
+      }
+    });
+    elStmts.appendChild(btn);
+  });
+
+  window._identityState = { abundance: 0, total: ABUNDANCE_STMTS.length };
+  window._handShown = false;
+
+  /* ── p5 field — expands with abundance, contracts with scarcity ── */
+  const sketch = p => {
+    const W = () => p.windowWidth;
+    const H = () => p.windowHeight;
+    let nodes = [];
+
+    function buildNodes(count) {
+      nodes = Array.from({ length: count }, () => ({
+        x: p.random(W()), y: p.random(H()),
+        vx: p.random(-0.4, 0.4), vy: p.random(-0.4, 0.4),
+        r: p.random(1.5, 4),
+      }));
+    }
+
+    p.setup = () => {
+      const cnv = p.createCanvas(W(), H());
+      cnv.parent('canvas-host');
+      buildNodes(30);
+    };
+
+    p.draw = () => {
+      p.background(240, 234, 248, 18);
+      const state = window._identityState || { abundance: 0, total: 10 };
+      const ratio = state.abundance / state.total;
+
+      // target node count based on abundance ratio
+      const targetCount = Math.floor(10 + ratio * 60);
+      if (nodes.length < targetCount) {
+        nodes.push({ x: p.random(W()), y: p.random(H()), vx: p.random(-0.4, 0.4), vy: p.random(-0.4, 0.4), r: p.random(1.5, 4) });
+      } else if (nodes.length > targetCount && nodes.length > 5) {
+        nodes.pop();
+      }
+
+      const alpha = 30 + ratio * 120;
+      nodes.forEach(n => {
+        n.x += n.vx; n.y += n.vy;
+        if (n.x < 0 || n.x > W()) n.vx *= -1;
+        if (n.y < 0 || n.y > H()) n.vy *= -1;
+
+        p.fill(201, 168, 76, alpha);
+        p.noStroke();
+        p.ellipse(n.x, n.y, n.r * (1 + ratio));
+      });
+
+      // connect close nodes
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const d = p.dist(nodes[i].x, nodes[i].y, nodes[j].x, nodes[j].y);
+          if (d < 80 + ratio * 60) {
+            p.stroke(201, 168, 76, (1 - d / 140) * alpha * 0.4);
+            p.strokeWeight(0.5);
+            p.line(nodes[i].x, nodes[i].y, nodes[j].x, nodes[j].y);
+          }
+        }
+      }
+    };
+
+    p.windowResized = () => { p.resizeCanvas(W(), H()); };
+  };
+
+  document.addEventListener('DOMContentLoaded', () => { new p5(sketch); });
+</script>
+</body>
+</html>

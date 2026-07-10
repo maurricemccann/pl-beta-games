@@ -1,0 +1,833 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glyph Decode — PL Beta Games</title>
+
+  <style>
+    @font-face {
+      font-family: 'PLHand';
+      src: url('fonts/MaurriceMccannPsychedHandwrit-Regular.otf') format('opentype'),
+           url('fonts/MaurriceMccannPsychedHandwrit-Regular.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+    }
+  </style>
+
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --void: #F0EAF8;
+      --gold: #6B3FA8;
+      --gold-bright: #9B6FD8;
+      --gold-dim: #4A2880;
+      --bone: #0A0A0A;
+      --ash: #7A6090;
+      --match-glow: rgba(107, 63, 168, 0.12);
+    }
+
+    body {
+      background: var(--void);
+      color: var(--bone);
+      font-family: 'PLHand', cursive;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* p5 shimmer canvas — above cards */
+    #p5-host {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      pointer-events: none;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 32px;
+      border-bottom: 1px solid #C4A8E8;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 60;
+    }
+
+    .back {
+      font-size: 10px;
+      letter-spacing: 0.35em;
+      color: var(--gold-dim);
+      text-decoration: none;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .back:hover { color: var(--gold); }
+
+    .title {
+      font-family: 'PLHand', cursive;
+      font-size: 18px;
+      font-weight: 300;
+      letter-spacing: 0.2em;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .stats {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+    }
+
+    .stat-label {
+      font-size: 9px;
+      letter-spacing: 0.3em;
+      color: var(--ash);
+      text-transform: uppercase;
+    }
+
+    .stat-value {
+      font-family: 'PLHand', cursive;
+      font-size: 22px;
+      font-weight: 400;
+      color: var(--gold);
+      line-height: 1;
+    }
+
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+      position: relative;
+      z-index: 5;
+    }
+
+    .instruction {
+      font-size: 11px;
+      letter-spacing: 0.3em;
+      color: var(--ash);
+      text-transform: uppercase;
+      margin-bottom: 40px;
+      text-align: center;
+    }
+
+    /* 4 columns fits 14 cards (3 full rows + partial) */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      max-width: 760px;
+      width: 100%;
+    }
+
+    @media (max-width: 500px) {
+      .grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    }
+
+    .card {
+      aspect-ratio: 3/4;
+      perspective: 1000px;
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+    .card:hover:not(.matched) { transform: translateY(-2px); }
+
+    .card-inner {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.45s cubic-bezier(0.45, 0, 0.55, 1);
+    }
+
+    .card.flipped .card-inner,
+    .card.matched .card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .card-back, .card-front {
+      position: absolute;
+      inset: 0;
+      backface-visibility: hidden;
+      border: 1px solid #C4A8E8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .card-back {
+      background: #EDE8F8;
+    }
+
+    .card-back-mark {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(14px, 3vw, 22px);
+      font-weight: 400;
+      color: #C4A8E8;
+      letter-spacing: 0.1em;
+    }
+
+    .card-back-dot {
+      width: 4px;
+      height: 4px;
+      background: #C4A8E8;
+      border-radius: 50%;
+      margin-top: 8px;
+    }
+
+    .card-front {
+      background: #FDFBFF;
+      transform: rotateY(180deg);
+      border-color: var(--gold-dim);
+      gap: 6px;
+    }
+
+    .card-front.type-glyph    { background: #F5F0FF; }
+    .card-front.type-meaning  { background: #FDFBFF; }
+
+    .card.matched .card-front {
+      border-color: var(--gold);
+      background: var(--match-glow);
+      box-shadow: inset 0 0 20px rgba(107,63,168,0.08), 0 0 0 1px var(--gold);
+    }
+
+    .card-type-label {
+      font-size: 8px;
+      letter-spacing: 0.35em;
+      color: var(--gold-dim);
+      text-transform: uppercase;
+    }
+
+    .card.matched .card-type-label { color: var(--gold); }
+
+    /* Large glyph symbol on glyph cards */
+    .card-symbol {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(24px, 5vw, 40px);
+      font-weight: 400;
+      color: var(--gold);
+      line-height: 1;
+      margin: 2px 0;
+    }
+
+    .card.matched .card-symbol { color: var(--gold-bright); }
+
+    .card-glyph-name {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(10px, 1.8vw, 13px);
+      font-weight: 600;
+      color: var(--bone);
+      letter-spacing: 0.08em;
+      line-height: 1.2;
+    }
+
+    .card-meaning {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(10px, 1.6vw, 12px);
+      font-style: normal;
+      color: #7A6090;
+      line-height: 1.5;
+    }
+
+    .card.matched .card-meaning { color: var(--gold); }
+
+    .card.mismatch .card-inner {
+      animation: shake 0.35s ease;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: rotateY(180deg) translateX(0); }
+      25%       { transform: rotateY(180deg) translateX(-4px); }
+      75%       { transform: rotateY(180deg) translateX(4px); }
+    }
+
+    @keyframes matchPulse {
+      0%   { box-shadow: 0 0 0 0 rgba(107,63,168,0.5); }
+      50%  { box-shadow: 0 0 0 8px rgba(107,63,168,0); }
+      100% { box-shadow: 0 0 0 0 rgba(107,63,168,0); }
+    }
+
+    .card.matched .card-front,
+    .card.matched .card-back {
+      animation: matchPulse 0.6s ease-out both;
+    }
+
+    /* Win overlay */
+    .win-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(240,234,248,0.97);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.6s;
+      z-index: 100;
+    }
+
+    .win-overlay.visible {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .win-label {
+      font-size: 10px;
+      letter-spacing: 0.5em;
+      color: var(--gold-dim);
+      text-transform: uppercase;
+    }
+
+    .win-headline {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(32px, 8vw, 64px);
+      font-weight: 400;
+      color: var(--bone);
+      letter-spacing: 0.05em;
+      text-align: center;
+    }
+
+    .win-sub {
+      font-family: 'PLHand', cursive;
+      font-size: 18px;
+      font-weight: 400;
+      font-style: normal;
+      color: var(--gold);
+    }
+
+    .win-stats {
+      display: flex;
+      gap: 48px;
+      margin-top: 8px;
+    }
+
+    .win-stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .win-stat-val {
+      font-family: 'PLHand', cursive;
+      font-size: 40px;
+      font-weight: 400;
+      color: var(--gold);
+      line-height: 1;
+    }
+
+    .win-stat-label {
+      font-size: 9px;
+      letter-spacing: 0.35em;
+      color: var(--ash);
+      text-transform: uppercase;
+    }
+
+    /* real archive pieces revealed on decode */
+    .win-pieces { display: flex; gap: 14px; margin-top: 8px; justify-content: center; flex-wrap: wrap; }
+    .win-piece { width: 88px; text-align: center; }
+    .win-piece img { width: 88px; height: 88px; object-fit: cover; border: 1px solid var(--gold-dim); display: block; }
+    .win-piece .pc-t { font-size: 9px; color: var(--ash); margin-top: 4px; line-height: 1.3; letter-spacing: 0.04em; }
+    @media (max-width: 500px) { .win-piece { width: 72px; } .win-piece img { width: 72px; height: 72px; } }
+
+    .win-btn {
+      margin-top: 12px;
+      background: transparent;
+      border: 1px solid var(--gold-dim);
+      color: var(--gold);
+      font-family: 'PLHand', cursive;
+      font-size: 10px;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      padding: 14px 36px;
+      min-height: 44px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .win-btn:hover {
+      border-color: var(--gold);
+      color: var(--bone);
+    }
+
+    /* PLHand closing declaration */
+    .watch-this {
+      font-family: 'PLHand', 'Cormorant Garamond', Georgia, serif;
+      font-size: clamp(22px, 4vw, 30px);
+      color: var(--gold);
+      letter-spacing: 0.06em;
+      margin-top: 8px;
+    }
+
+    /* Idle screen */
+    .idle-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      flex: 1;
+    }
+
+    .idle-headline {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(20px, 5vw, 36px);
+      font-weight: 400;
+      color: var(--bone);
+      letter-spacing: 0.08em;
+      text-align: center;
+    }
+
+    .idle-desc {
+      font-size: 12px;
+      color: var(--ash);
+      line-height: 1.8;
+      text-align: center;
+      max-width: 360px;
+    }
+
+    .start-btn {
+      background: transparent;
+      border: 1px solid var(--gold-dim);
+      color: var(--gold);
+      font-family: 'PLHand', cursive;
+      font-size: 10px;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      padding: 14px 36px;
+      min-height: 44px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .start-btn:hover {
+      border-color: var(--gold);
+      color: var(--bone);
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--gold-dim);
+      outline-offset: 3px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      #p5-host { display: none; }
+    }
+  </style>
+  <!-- PL theme injection: reads accent/glyph from URL params or sessionStorage -->
+  <script id="pl-theme">
+  (function(){
+    function hexToRgb(h){h=h.replace(/^#/,'');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function clamp(v){return Math.max(0,Math.min(255,Math.round(v)));}
+    function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(x){return clamp(x).toString(16).padStart(2,'0')}).join('');}
+    function lighten(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]+(255-c[0])*pct,c[1]+(255-c[1])*pct,c[2]+(255-c[2])*pct);}
+    function darken(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]*(1-pct),c[1]*(1-pct),c[2]*(1-pct));}
+    function isHex(s){return /^#?[0-9a-fA-F]{6}$/.test(s);}
+    function applyAccent(accent){
+      var h=accent.startsWith('#')?accent:'#'+accent;
+      var el=document.documentElement;
+      el.style.setProperty('--gold',h);
+      el.style.setProperty('--gold-bright',lighten(h,0.18));
+      el.style.setProperty('--gold-light',lighten(h,0.14));
+      el.style.setProperty('--gold-dim',darken(h,0.25));
+      el.style.setProperty('--gold-muted',darken(h,0.12));
+    }
+    var params=new URLSearchParams(window.location.search);
+    var accent=params.get('accent')||'';
+    var glyph=params.get('glyph')||'';
+    if(accent&&isHex(accent)){
+      sessionStorage.setItem('pl_accent',accent);
+      applyAccent(accent);
+    } else {
+      var sa=sessionStorage.getItem('pl_accent');
+      if(sa&&isHex(sa)){applyAccent(sa);}
+    }
+    if(glyph){sessionStorage.setItem('pl_glyph',glyph);}
+    window.PL_GLYPH=glyph||sessionStorage.getItem('pl_glyph')||'';
+    function propagateLinks(){
+      var a=sessionStorage.getItem('pl_accent');
+      var g=sessionStorage.getItem('pl_glyph');
+      if(!a&&!g)return;
+      var links=document.querySelectorAll('a[href]');
+      links.forEach(function(el){
+        var href=el.getAttribute('href');
+        if(!href||href.startsWith('http')||href.startsWith('//')||href.startsWith('#'))return;
+        if(!href.endsWith('.html'))return;
+        if(el.dataset.plThemed)return;
+        el.dataset.plThemed='1';
+        var url=new URL(href,window.location.href);
+        if(a)url.searchParams.set('accent',a);
+        if(g)url.searchParams.set('glyph',g);
+        el.setAttribute('href',url.pathname.split('/').pop()+'?'+url.searchParams.toString());
+      });
+    }
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',propagateLinks);}else{propagateLinks();}
+  })();
+  </script><script src="pl-game-data.js"></script>
+<script src="pl-points.js" defer></script></head>
+<body>
+
+<div id="game-instructions" style="position:fixed;inset:0;z-index:1000;background:#F0EAF8;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center;">
+  <p style="font-family:'PLHand',cursive;font-size:9px;letter-spacing:0.5em;text-transform:uppercase;color:#4A2880;margin-bottom:16px;">How to Play</p>
+  <h2 style="font-family:'PLHand',cursive;font-size:clamp(28px,6vw,52px);color:#0A0A0A;font-weight:400;margin-bottom:20px;">Glyph Decode</h2>
+  <p style="font-family:'PLHand',cursive;font-size:clamp(14px,2vw,18px);color:#2D1A50;max-width:480px;line-height:1.7;margin-bottom:32px;">Flip cards to find matching pairs — each glyph from the archive paired with its doctrine meaning. Seven pairs hidden in 14 cards. The field rewards pattern recognition. Fewest moves wins.</p>
+  <button id="begin-btn" style="font-family:'PLHand',cursive;font-size:12px;letter-spacing:0.4em;text-transform:uppercase;padding:16px 40px;background:transparent;border:1px solid #4A2880;color:#6B3FA8;cursor:pointer;">Begin</button>
+</div>
+
+<!-- p5 shimmer layer — card flip bursts -->
+<div id="p5-host"></div>
+
+<header>
+  <a class="back" href="index.html">← Games</a>
+  <span class="title">Glyph Decode</span>
+  <div class="stats">
+    <div class="stat">
+      <span class="stat-label">Time</span>
+      <span class="stat-value" id="timer">0:00</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Moves</span>
+      <span class="stat-value" id="moveCount">0</span>
+    </div>
+  </div>
+</header>
+
+<div class="main" id="mainArea">
+  <div class="idle-screen" id="idleScreen">
+    <p class="idle-headline">Read the Field</p>
+    <p class="idle-desc">Seven glyphs from the archive. Match each mark to its meaning. The field rewards attention. Hesitation costs nothing — misreading costs everything.</p>
+    <button class="start-btn" id="startBtn">Begin</button>
+  </div>
+
+  <div id="gameArea" style="display:none; flex-direction:column; align-items:center; gap:40px; width:100%;">
+    <p class="instruction">Match each glyph to its meaning</p>
+    <div class="grid" id="cardGrid"></div>
+  </div>
+</div>
+
+<div class="win-overlay" id="winOverlay">
+  <div class="win-label">Field Decoded</div>
+  <div class="win-headline">You read the field.</div>
+  <div class="win-sub" id="winSub"></div>
+  <div class="win-stats">
+    <div class="win-stat">
+      <div class="win-stat-val" id="winTime">—</div>
+      <div class="win-stat-label">Time</div>
+    </div>
+    <div class="win-stat">
+      <div class="win-stat-val" id="winMoves">—</div>
+      <div class="win-stat-label">Moves</div>
+    </div>
+  </div>
+  <div class="win-pieces" id="winPieces"></div>
+  <button class="win-btn" id="winBtn">Play Again</button>
+  <div class="watch-this">Watch this.</div>
+</div>
+
+<script>
+  // ── Lexicon — 7 glyph clusters ─────────────────────────────────────────────
+  const LEXICON = [
+    {
+      id: 'curve',
+      symbol: '⌒',
+      glyph: 'The Curve',
+      meaning: 'The daily practice made visible. The arc that connects intention to form.',
+    },
+    {
+      id: 'preparation',
+      symbol: '◈',
+      glyph: 'The Gate',
+      meaning: 'Prepared for luxury. The posture before the act.',
+    },
+    {
+      id: 'control',
+      symbol: '⊕',
+      glyph: 'The Axis',
+      meaning: 'You are in control of your reality. The center point that holds.',
+    },
+    {
+      id: 'persistence',
+      symbol: '∞',
+      glyph: 'The Loop',
+      meaning: 'What persists in the mind becomes your reality. The return that builds.',
+    },
+    {
+      id: 'signal',
+      symbol: '◉',
+      glyph: 'The Signal',
+      meaning: 'The transmission. What is sent reaches only those already tuned.',
+    },
+    {
+      id: 'archive',
+      symbol: '▣',
+      glyph: 'The Vault',
+      meaning: 'The record of seven years. Proof that showing up works.',
+    },
+    {
+      id: 'congregation',
+      symbol: '⬡',
+      glyph: 'The Congregation',
+      meaning: 'Not an audience. The people who have already decided.',
+    },
+  ];
+
+  // ── Game state ────────────────────────────────────────────────────────────
+  let timerInterval = null;
+  let seconds  = 0;
+  let moves    = 0;
+  let matched  = 0;
+  let flipped  = [];
+  let locked   = false;
+
+  function fmt(s) {
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  }
+
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function buildCards() {
+    const cards = [];
+    for (const g of LEXICON) {
+      cards.push({ glyphId: g.id, type: 'glyph',   symbol: g.symbol, glyph: g.glyph });
+      cards.push({ glyphId: g.id, type: 'meaning',  meaning: g.meaning });
+    }
+    return shuffle(cards);
+  }
+
+  function startGame() {
+    seconds = 0; moves = 0; matched = 0; flipped = []; locked = false;
+    document.getElementById('timer').textContent     = '0:00';
+    document.getElementById('moveCount').textContent = '0';
+    document.getElementById('idleScreen').style.display = 'none';
+    document.getElementById('gameArea').style.display  = 'flex';
+
+    const grid = document.getElementById('cardGrid');
+    grid.innerHTML = '';
+
+    buildCards().forEach((data, idx) => {
+      const card = document.createElement('div');
+      card.className       = 'card';
+      card.dataset.idx     = idx;
+      card.dataset.glyphId = data.glyphId;
+      card.dataset.type    = data.type;
+
+      const inner = document.createElement('div');
+      inner.className = 'card-inner';
+
+      const back = document.createElement('div');
+      back.className = 'card-back';
+      back.innerHTML = `<span class="card-back-mark">PL</span><div class="card-back-dot"></div>`;
+
+      const front = document.createElement('div');
+      front.className = `card-front type-${data.type}`;
+
+      if (data.type === 'glyph') {
+        front.innerHTML = `
+          <span class="card-type-label">Glyph</span>
+          <span class="card-symbol">${data.symbol}</span>
+          <span class="card-glyph-name">${data.glyph}</span>`;
+      } else {
+        front.innerHTML = `
+          <span class="card-type-label">Meaning</span>
+          <span class="card-meaning">${data.meaning}</span>`;
+      }
+
+      inner.appendChild(back);
+      inner.appendChild(front);
+      card.appendChild(inner);
+      card.addEventListener('click', onCardClick);
+      grid.appendChild(card);
+    });
+
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      seconds++;
+      document.getElementById('timer').textContent = fmt(seconds);
+    }, 1000);
+  }
+
+  function onCardClick(e) {
+    if (locked) return;
+    const card = e.currentTarget;
+    if (card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+    card.classList.add('flipped');
+    emitShimmer(card);
+    flipped.push(card);
+
+    if (flipped.length === 2) {
+      moves++;
+      document.getElementById('moveCount').textContent = moves;
+      locked = true;
+
+      const [a, b] = flipped;
+      const sameGlyph = a.dataset.glyphId === b.dataset.glyphId;
+      const diffType  = a.dataset.type    !== b.dataset.type;
+
+      if (sameGlyph && diffType) {
+        setTimeout(() => {
+          a.classList.remove('flipped');
+          b.classList.remove('flipped');
+          a.classList.add('matched');
+          b.classList.add('matched');
+          flipped = [];
+          locked  = false;
+          matched++;
+          if (matched === LEXICON.length) showWin();
+        }, 400);
+      } else {
+        a.classList.add('mismatch');
+        b.classList.add('mismatch');
+        setTimeout(() => {
+          a.classList.remove('flipped', 'mismatch');
+          b.classList.remove('flipped', 'mismatch');
+          flipped = [];
+          locked  = false;
+        }, 900);
+      }
+    }
+  }
+
+  function showWin() {
+    clearInterval(timerInterval);
+    document.getElementById('winTime').textContent  = fmt(seconds);
+    document.getElementById('winMoves').textContent = moves;
+
+    let sub = '';
+    if      (moves <= 8)  sub = 'Flawless.';
+    else if (moves <= 14) sub = 'Precise.';
+    else if (moves <= 22) sub = 'The field opened to you.';
+    else                  sub = 'The glyphs held their secrets, then yielded.';
+    document.getElementById('winSub').textContent = sub;
+
+    // the decoded field rewards you with real works from the archive (PLGames)
+    const wp = document.getElementById('winPieces');
+    wp.innerHTML = '';
+    if (window.PLGames) {
+      PLGames.randomPieces(3).then(ps => {
+        (ps || []).forEach(p => {
+          const d = document.createElement('div');
+          d.className = 'win-piece';
+          const src = p.thumb || p.url || '';
+          d.innerHTML = `<img alt="" src="${src}"><div class="pc-t">${p.title || p.cr || ''}</div>`;
+          wp.appendChild(d);
+        });
+      });
+    }
+
+    setTimeout(() => {
+      document.getElementById('winOverlay').classList.add('visible');
+    }, 500);
+  }
+
+  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.getElementById('winBtn').addEventListener('click', () => {
+    document.getElementById('winOverlay').classList.remove('visible');
+    document.getElementById('gameArea').style.display  = 'none';
+    document.getElementById('idleScreen').style.display = 'flex';
+    document.getElementById('winPieces').innerHTML = '';
+    shimmerParticles = [];
+  });
+
+  // ── p5 shimmer — gold particle burst on card flip ──────────────────────────
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let shimmerParticles = [];
+
+  function emitShimmer(cardEl) {
+    if (prefersReduced) return;
+    const rect  = cardEl.getBoundingClientRect();
+    const cx    = rect.left + rect.width  / 2;
+    const cy    = rect.top  + rect.height / 2;
+    const count = 6 + Math.floor(Math.random() * 3); // 6–8
+
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 1.3 + Math.random() * 0.7; // 20–30px over 15 frames
+      shimmerParticles.push({
+        x: cx, y: cy,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 15, maxLife: 15,
+        r: 1.5 + Math.random() * 1.5,
+      });
+    }
+  }
+
+  const shimmerSketch = p => {
+    p.setup = () => {
+      const cnv = p.createCanvas(p.windowWidth, p.windowHeight);
+      cnv.parent('p5-host');
+      p.noStroke();
+    };
+
+    p.draw = () => {
+      p.clear();
+      if (prefersReduced || shimmerParticles.length === 0) return;
+      shimmerParticles = shimmerParticles.filter(sp => sp.life > 0);
+      shimmerParticles.forEach(sp => {
+        sp.x  += sp.vx;
+        sp.y  += sp.vy;
+        sp.life--;
+        const alpha = Math.round((sp.life / sp.maxLife) * 220);
+        p.fill(107, 63, 168, alpha);
+        p.circle(sp.x, sp.y, sp.r * 2);
+      });
+    };
+
+    p.windowResized = () => {
+      p.resizeCanvas(p.windowWidth, p.windowHeight);
+    };
+  };
+
+  if (typeof p5 !== 'undefined' && !prefersReduced) {
+    new p5(shimmerSketch);
+  }
+
+  (function() {
+    const panel = document.getElementById('game-instructions');
+    if (!panel) return;
+    if (sessionStorage.getItem('pl_instructions_seen_' + location.pathname)) { panel.style.display = 'none'; return; }
+    document.getElementById('begin-btn').addEventListener('click', function() {
+      panel.style.display = 'none';
+      sessionStorage.setItem('pl_instructions_seen_' + location.pathname, '1');
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { panel.style.display = 'none'; sessionStorage.setItem('pl_instructions_seen_' + location.pathname, '1'); }
+    });
+  })();
+</script>
+</body>
+</html>

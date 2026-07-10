@@ -1,0 +1,496 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transmission Engine — PL Beta Games</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @font-face {
+      font-family: 'PLHand';
+      src: url('fonts/MaurriceMccannPsychedHandwrit-Regular.otf') format('opentype'),
+           url('fonts/MaurriceMccannPsychedHandwrit-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --void: #F8F2E4;
+      --gold: #B8861C;
+      --gold-dim: #7A5C14;
+      --gold-muted: #9A7020;
+      --bone: #0A0A0A;
+      --ash: #3A3020;
+      --border: #D4AF6A;
+      --btn-bg: #EDE5CE;
+    }
+
+    html, body {
+      width: 100%; min-height: 100%;
+      background: var(--void);
+      color: var(--bone);
+      font-family: 'PLHand', cursive;
+      overflow-x: hidden;
+    }
+
+    #p5-host {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+    #p5-host canvas { display: block; width: 100% !important; height: 100% !important; }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 24px 120px;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .nav-bar {
+      position: fixed;
+      top: 24px; left: 24px;
+      z-index: 10;
+    }
+    .nav-link {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      color: var(--ash);
+      text-decoration: none;
+      text-transform: uppercase;
+    }
+    .nav-link:hover { color: var(--gold); }
+
+    #law-strip {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      font-size: 9px;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      color: var(--gold-dim);
+    }
+    #law-strip strong { color: var(--gold); font-weight: 300; }
+
+    #input-section {
+      width: 100%;
+      max-width: 520px;
+      margin-bottom: 40px;
+    }
+
+    #input-label {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--ash);
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    #intention-input {
+      width: 100%;
+      background: var(--btn-bg);
+      border: 1px solid var(--border);
+      color: var(--bone);
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: 18px;
+      padding: 16px;
+      outline: none;
+      transition: border-color 0.2s;
+      resize: none;
+      rows: 3;
+    }
+    #intention-input:focus { border-color: var(--gold-dim); }
+    #intention-input::placeholder { color: var(--ash); }
+
+    #transmit-btn {
+      margin-top: 12px;
+      padding: 12px 28px;
+      background: var(--btn-bg);
+      border: 1px solid var(--gold-dim);
+      color: var(--gold);
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    #transmit-btn:hover { border-color: var(--gold); }
+    #transmit-btn:disabled { opacity: 0.4; cursor: default; }
+
+    #stages {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .stage-block {
+      border: 1px solid var(--border);
+      border-top: none;
+      padding: 16px 20px;
+      opacity: 0.2;
+      transition: opacity 0.5s;
+    }
+    .stage-block:first-child { border-top: 1px solid var(--border); }
+    .stage-block.active { opacity: 1; border-color: var(--gold-dim); }
+    .stage-block.done { opacity: 0.6; border-color: var(--border); }
+
+    .stage-num {
+      font-size: 9px;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      color: var(--gold-dim);
+      margin-bottom: 8px;
+    }
+    .stage-title {
+      font-size: 11px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--gold-muted);
+      margin-bottom: 10px;
+    }
+    .stage-text {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: clamp(14px, 2.2vw, 18px);
+      color: var(--bone);
+      line-height: 1.6;
+      letter-spacing: 0.03em;
+    }
+    .stage-block.active .stage-text { color: var(--gold); }
+
+    #plhand-end {
+      position: fixed;
+      bottom: 72px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      font-family: 'PLHand', cursive;
+      font-size: clamp(18px, 3.5vw, 26px);
+      color: var(--gold);
+      opacity: 0;
+      transition: opacity 0.6s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; }
+      #p5-host { display: none; }
+    }
+  </style>
+  <!-- PL theme injection: reads accent/glyph from URL params or sessionStorage -->
+  <script id="pl-theme">
+  (function(){
+    function hexToRgb(h){h=h.replace(/^#/,'');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function clamp(v){return Math.max(0,Math.min(255,Math.round(v)));}
+    function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(x){return clamp(x).toString(16).padStart(2,'0')}).join('');}
+    function lighten(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]+(255-c[0])*pct,c[1]+(255-c[1])*pct,c[2]+(255-c[2])*pct);}
+    function darken(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]*(1-pct),c[1]*(1-pct),c[2]*(1-pct));}
+    function isHex(s){return /^#?[0-9a-fA-F]{6}$/.test(s);}
+    function applyAccent(accent){
+      var h=accent.startsWith('#')?accent:'#'+accent;
+      var el=document.documentElement;
+      el.style.setProperty('--gold',h);
+      el.style.setProperty('--gold-bright',lighten(h,0.18));
+      el.style.setProperty('--gold-light',lighten(h,0.14));
+      el.style.setProperty('--gold-dim',darken(h,0.25));
+      el.style.setProperty('--gold-muted',darken(h,0.12));
+    }
+    var params=new URLSearchParams(window.location.search);
+    var accent=params.get('accent')||'';
+    var glyph=params.get('glyph')||'';
+    if(accent&&isHex(accent)){
+      sessionStorage.setItem('pl_accent',accent);
+      applyAccent(accent);
+    } else {
+      var sa=sessionStorage.getItem('pl_accent');
+      if(sa&&isHex(sa)){applyAccent(sa);}
+    }
+    if(glyph){sessionStorage.setItem('pl_glyph',glyph);}
+    window.PL_GLYPH=glyph||sessionStorage.getItem('pl_glyph')||'';
+    function propagateLinks(){
+      var a=sessionStorage.getItem('pl_accent');
+      var g=sessionStorage.getItem('pl_glyph');
+      if(!a&&!g)return;
+      var links=document.querySelectorAll('a[href]');
+      links.forEach(function(el){
+        var href=el.getAttribute('href');
+        if(!href||href.startsWith('http')||href.startsWith('//')||href.startsWith('#'))return;
+        if(!href.endsWith('.html'))return;
+        if(el.dataset.plThemed)return;
+        el.dataset.plThemed='1';
+        var url=new URL(href,window.location.href);
+        if(a)url.searchParams.set('accent',a);
+        if(g)url.searchParams.set('glyph',g);
+        el.setAttribute('href',url.pathname.split('/').pop()+'?'+url.searchParams.toString());
+      });
+    }
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',propagateLinks);}else{propagateLinks();}
+  })();
+  </script><script src="pl-game-data.js"></script>
+<script src="pl-points.js" defer></script></head>
+<body>
+<div id="game-instructions" style="position:fixed;inset:0;background:#F8F2E4;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;font-family:'PLHand',cursive;">
+  <div style="max-width:500px;text-align:center;">
+    <p style="font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:#B8861C;margin-bottom:16px;">How to Play</p>
+    <h2 style="font-size:clamp(26px,4vw,40px);color:#0A0A0A;margin-bottom:20px;line-height:1.2;font-weight:400;">Transmission Engine</h2>
+    <p style="font-size:clamp(16px,2.5vw,20px);color:#3A3020;line-height:1.7;margin-bottom:36px;">The practice transmits. You are the signal. Align your frequency. What you broadcast, the world receives.</p>
+    <button id="begin-btn" style="font-family:'PLHand',cursive;font-size:20px;background:#B8861C;color:#F8F2E4;border:none;padding:14px 40px;cursor:pointer;letter-spacing:0.1em;">Begin</button>
+  </div>
+</div>
+<script>
+(function(){
+  var panel=document.getElementById('game-instructions');
+  if(!panel)return;
+  if(sessionStorage.getItem('pl_seen_'+location.pathname)){panel.style.display='none';return;}
+  document.getElementById('begin-btn').addEventListener('click',function(){
+    panel.style.display='none';
+    sessionStorage.setItem('pl_seen_'+location.pathname,'1');
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){panel.style.display='none';sessionStorage.setItem('pl_seen_'+location.pathname,'1');}
+  });
+})();
+</script>
+
+  <div id="p5-host"></div>
+
+  <nav class="nav-bar">
+    <a class="nav-link" href="index.html">← Games</a>
+  </nav>
+
+  <div id="law-strip">Law: <strong id="lawNum">—</strong></div>
+
+  <div class="page">
+    <div id="input-section">
+      <label id="input-label" for="intention-input">State your intention.</label>
+      <textarea id="intention-input" rows="3" placeholder="I am prepared for…" maxlength="200"></textarea>
+      <button id="transmit-btn">Transmit</button>
+    </div>
+
+    <div id="stages">
+      <div class="stage-block" id="stage1">
+        <div class="stage-num">Truth I</div>
+        <div class="stage-title">Prepared for Luxury</div>
+        <div class="stage-text" id="stage1-text">—</div>
+      </div>
+      <div class="stage-block" id="stage2">
+        <div class="stage-num">Truth II</div>
+        <div class="stage-title">You Are In Control</div>
+        <div class="stage-text" id="stage2-text">—</div>
+      </div>
+      <div class="stage-block" id="stage3">
+        <div class="stage-num">Truth III</div>
+        <div class="stage-title">What Persists Becomes Reality</div>
+        <div class="stage-text" id="stage3-text">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="plhand-end">Transmitted.</div>
+
+<script>
+  /* ── Three Truths transformation engine ───────────────────── */
+  function transformLaw1(input) {
+    // Truth 1: Prepared for Luxury — frame as preparation
+    const stripped = input.replace(/^I am |^I want |^i am |^i want /i, '');
+    const templates = [
+      `The preparation for ${stripped} is already in motion.`,
+      `You are ready for ${stripped}. The conditions are set.`,
+      `${stripped.charAt(0).toUpperCase() + stripped.slice(1)} — this is what luxury looks like from the inside.`,
+      `Prepared. The practice was building toward ${stripped} before you named it.`,
+    ];
+    return templates[Math.floor(Math.random() * templates.length)];
+  }
+
+  function transformLaw2(input) {
+    // Truth 2: You are in control — reframe as agency
+    const stripped = input.replace(/^I am |^I want |^i am |^i want /i, '');
+    const templates = [
+      `You are in control of this reality. ${stripped.charAt(0).toUpperCase() + stripped.slice(1)} is not given — it is commanded.`,
+      `The architect decides. ${stripped.charAt(0).toUpperCase() + stripped.slice(1)} belongs to the version of you who acts.`,
+      `Control is not force — it is clarity. You know what ${stripped} requires. Begin.`,
+      `Reality obeys those who direct it. Your intention: ${stripped}. Your move.`,
+    ];
+    return templates[Math.floor(Math.random() * templates.length)];
+  }
+
+  function transformLaw3(input) {
+    // Truth 3: What persists becomes reality
+    const stripped = input.replace(/^I am |^I want |^i am |^i want /i, '');
+    const templates = [
+      `${stripped.charAt(0).toUpperCase() + stripped.slice(1)} — held in the mind, it gains mass. It becomes the next fact.`,
+      `What you persist with becomes the architecture of your life. Persist with ${stripped}.`,
+      `Seven years proves it. The mind held the Curve every day. Now hold ${stripped}.`,
+      `The practice is proof: what persists in the mind becomes your reality. Let ${stripped} persist.`,
+    ];
+    return templates[Math.floor(Math.random() * templates.length)];
+  }
+
+  /* ── State ───────────────────────────────────────────────── */
+  let transmitting = false;
+  let pulses       = [];
+
+  const elInput  = document.getElementById('intention-input');
+  const elBtn    = document.getElementById('transmit-btn');
+  const elLaw    = document.getElementById('lawNum');
+  const elHand   = document.getElementById('plhand-end');
+  const stageEls = [
+    { block: document.getElementById('stage1'), text: document.getElementById('stage1-text') },
+    { block: document.getElementById('stage2'), text: document.getElementById('stage2-text') },
+    { block: document.getElementById('stage3'), text: document.getElementById('stage3-text') },
+  ];
+
+  function reset() {
+    stageEls.forEach(s => {
+      s.block.classList.remove('active', 'done');
+      s.text.textContent = '—';
+    });
+    elLaw.textContent = '—';
+  }
+
+  /* The three truths, in order — each stage frames the intention through one. */
+  const TRUTHS = [
+    'Prepared for luxury',
+    'You are in control of your reality',
+    'What persists in the mind becomes your reality',
+  ];
+
+  // Oracle answers can run long; the stage shows a transmission, not an essay.
+  function trimAnswer(s) {
+    s = (s || '').replace(/\s+/g, ' ').trim();
+    if (!s) return '';
+    const m = s.match(/^.*?[.!?]["')\]]?(?:\s.*?[.!?]["')\]]?)?(?=\s|$)/);
+    let out = (m ? m[0] : s).trim();
+    if (out.length > 260) {
+      out = out.slice(0, 257);
+      const sp = out.lastIndexOf(' ');
+      if (sp > 200) out = out.slice(0, sp);   // cut on a word boundary, not mid-word
+      out = out.trim() + '…';
+    }
+    return out;
+  }
+
+  async function transmit() {
+    const input = elInput.value.trim();
+    if (!input || transmitting) return;
+
+    transmitting = true;
+    elBtn.disabled = true;
+    reset();
+    pulses.push(1);
+
+    const transforms = [transformLaw1, transformLaw2, transformLaw3];
+    for (let i = 0; i < 3; i++) {
+      elLaw.textContent = `${i + 1}`;
+      stageEls[i].block.classList.add('active');
+      if (i > 0) stageEls[i - 1].block.classList.remove('active');
+      if (i > 0) stageEls[i - 1].block.classList.add('done');
+      stageEls[i].text.textContent = '…';
+
+      // live Oracle (RAG over the corpus), framed through this truth; local transform on empty/offline
+      let text = '';
+      if (window.PLGames) {
+        const q = `In one or two sentences, through the truth "${TRUTHS[i]}", speak to this intention: ${input}`;
+        try { text = trimAnswer(await PLGames.oracle(q)); } catch (_) {}
+      }
+      if (!text) { await new Promise(r => setTimeout(r, 600)); text = transforms[i](input); }
+
+      pulses.push(1);
+      stageEls[i].text.textContent = text;
+    }
+
+    stageEls[2].block.classList.remove('active');
+    stageEls[2].block.classList.add('done');
+
+    elHand.style.opacity = '1';
+    setTimeout(() => { elHand.style.opacity = '0'; }, 3000);
+
+    transmitting  = false;
+    elBtn.disabled = false;
+    elLaw.textContent = '✓';
+  }
+
+  elBtn.addEventListener('click', transmit);
+  elInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); transmit(); }
+  });
+
+  /* ── p5 transmission visual ──────────────────────────────── */
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const sketch = p => {
+      let particles = [];
+      let arcs = [];
+
+      p.setup = () => {
+        const cnv = p.createCanvas(p.windowWidth, p.windowHeight);
+        cnv.parent('p5-host');
+      };
+
+      p.draw = () => {
+        p.clear();
+
+        while (pulses.length > 0) {
+          pulses.pop();
+          arcs.push({ r: 20, alpha: 60 });
+          for (let i = 0; i < 15; i++) {
+            const angle = p.random(p.TWO_PI);
+            particles.push({
+              x: p.windowWidth / 2, y: p.windowHeight / 2,
+              vx: Math.cos(angle) * p.random(2, 6),
+              vy: Math.sin(angle) * p.random(2, 6),
+              alpha: 100,
+            });
+          }
+        }
+
+        const cx = p.windowWidth / 2, cy = p.windowHeight / 2;
+        for (let i = arcs.length - 1; i >= 0; i--) {
+          const a = arcs[i];
+          a.r    += 5;
+          a.alpha -= 2;
+          if (a.alpha <= 0) { arcs.splice(i, 1); continue; }
+          p.noFill();
+          p.stroke(201, 168, 76, a.alpha);
+          p.strokeWeight(1);
+          p.ellipse(cx, cy, a.r * 2);
+        }
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const pt = particles[i];
+          pt.x += pt.vx; pt.y += pt.vy;
+          pt.alpha -= 4;
+          if (pt.alpha <= 0) { particles.splice(i, 1); continue; }
+          p.fill(201, 168, 76, pt.alpha);
+          p.noStroke();
+          p.ellipse(pt.x, pt.y, 3);
+        }
+      };
+
+      p.windowResized = () => p.resizeCanvas(p.windowWidth, p.windowHeight);
+    };
+
+    new p5(sketch);
+  });
+</script>
+</body>
+</html>

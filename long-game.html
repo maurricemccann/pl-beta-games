@@ -1,0 +1,310 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Long Game — PL Beta Games</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    @font-face {
+      font-family: 'PLHand';
+      src: url('fonts/MaurriceMccannPsychedHandwrit-Regular.otf') format('opentype'),
+           url('fonts/MaurriceMccannPsychedHandwrit-Regular.ttf') format('truetype');
+      font-weight: 400; font-style: normal; font-display: swap;
+    }
+    :root { --void:#F0EAF8; --gold:#6B3FA8; --gold-dim:#4A2880; --gold-muted:#7B50B8; --bone:#0A0A0A; --ash:#7A6090; --border:#C4A8E8; }
+    html, body { width:100%; min-height:100%; background:var(--void); color:var(--bone); font-family:'PLHand',cursive; overflow-x:hidden; }
+    #p5-host { position:fixed; inset:0; z-index:0; pointer-events:none; }
+    #p5-host canvas { display:block; width:100%!important; height:100%!important; }
+    .page { position:relative; z-index:1; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:80px 24px 120px; max-width:600px; margin:0 auto; }
+    .nav-bar { position:fixed; top:24px; left:24px; z-index:10; }
+    .nav-link { font-size:10px; letter-spacing:0.3em; color:var(--ash); text-decoration:none; text-transform:uppercase; }
+    .nav-link:hover { color:var(--gold); }
+    #streak-header { display:flex; flex-direction:column; align-items:center; gap:8px; margin-bottom:40px; text-align:center; }
+    #days-count { font-family:'Cormorant Garamond',serif; font-size:clamp(48px,10vw,80px); color:var(--gold); font-weight:300; line-height:1; }
+    #days-label { font-size:10px; letter-spacing:0.4em; text-transform:uppercase; color:var(--gold-dim); }
+    #streak-phrase { font-family:'Cormorant Garamond',serif; font-style:italic; font-size:clamp(14px,2.5vw,18px); color:var(--gold-muted); margin-top:8px; }
+    #check-in-section { display:flex; flex-direction:column; align-items:center; gap:16px; margin-bottom:40px; width:100%; max-width:480px; }
+    #seed-display { font-family:'Cormorant Garamond',serif; font-style:italic; font-size:clamp(14px,2.5vw,17px); color:var(--bone); text-align:center; line-height:1.6; padding:16px 20px; border:1px solid var(--border); width:100%; min-height:60px; background:#E0D4F0; }
+    #checkin-btn { padding:14px 40px; background:#E0D4F0; border:1px solid var(--gold-dim); color:var(--gold);
+      font-size:10px; letter-spacing:0.3em; text-transform:uppercase; cursor:pointer; transition:border-color 0.2s; }
+    #checkin-btn:hover { border-color:var(--gold); }
+    #checkin-btn:disabled { opacity:0.3; cursor:default; }
+    #checkin-status { font-size:10px; letter-spacing:0.3em; text-transform:uppercase; color:var(--ash); }
+    #grid { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; width:100%; max-width:420px; margin-bottom:32px; }
+    .day-cell { aspect-ratio:1; background:#E0D4F0; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:8px; color:#222; transition:background 0.3s,border-color 0.3s; }
+    .day-cell.done { background:rgba(201,168,76,0.15); border-color:var(--gold-dim); color:var(--gold-muted); }
+    .day-cell.today { border-color:var(--gold); }
+    .day-cell.done.today { background:rgba(201,168,76,0.25); border-color:var(--gold); color:var(--gold); }
+    #milestone-msg { font-family:'Cormorant Garamond',serif; font-style:italic; font-size:clamp(14px,2.5vw,17px); color:var(--gold); text-align:center; min-height:24px; }
+    #plhand { position:fixed; bottom:72px; left:50%; transform:translateX(-50%); z-index:10;
+      font-family:'PLHand',cursive; font-size:clamp(18px,3.5vw,26px); color:var(--gold);
+      opacity:0; transition:opacity 0.6s; pointer-events:none; white-space:nowrap; }
+  </style>
+  <!-- PL theme injection: reads accent/glyph from URL params or sessionStorage -->
+  <script id="pl-theme">
+  (function(){
+    function hexToRgb(h){h=h.replace(/^#/,'');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function clamp(v){return Math.max(0,Math.min(255,Math.round(v)));}
+    function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(x){return clamp(x).toString(16).padStart(2,'0')}).join('');}
+    function lighten(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]+(255-c[0])*pct,c[1]+(255-c[1])*pct,c[2]+(255-c[2])*pct);}
+    function darken(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]*(1-pct),c[1]*(1-pct),c[2]*(1-pct));}
+    function isHex(s){return /^#?[0-9a-fA-F]{6}$/.test(s);}
+    function applyAccent(accent){
+      var h=accent.startsWith('#')?accent:'#'+accent;
+      var el=document.documentElement;
+      el.style.setProperty('--gold',h);
+      el.style.setProperty('--gold-bright',lighten(h,0.18));
+      el.style.setProperty('--gold-light',lighten(h,0.14));
+      el.style.setProperty('--gold-dim',darken(h,0.25));
+      el.style.setProperty('--gold-muted',darken(h,0.12));
+    }
+    var params=new URLSearchParams(window.location.search);
+    var accent=params.get('accent')||'';
+    var glyph=params.get('glyph')||'';
+    if(accent&&isHex(accent)){
+      sessionStorage.setItem('pl_accent',accent);
+      applyAccent(accent);
+    } else {
+      var sa=sessionStorage.getItem('pl_accent');
+      if(sa&&isHex(sa)){applyAccent(sa);}
+    }
+    if(glyph){sessionStorage.setItem('pl_glyph',glyph);}
+    window.PL_GLYPH=glyph||sessionStorage.getItem('pl_glyph')||'';
+    function propagateLinks(){
+      var a=sessionStorage.getItem('pl_accent');
+      var g=sessionStorage.getItem('pl_glyph');
+      if(!a&&!g)return;
+      var links=document.querySelectorAll('a[href]');
+      links.forEach(function(el){
+        var href=el.getAttribute('href');
+        if(!href||href.startsWith('http')||href.startsWith('//')||href.startsWith('#'))return;
+        if(!href.endsWith('.html'))return;
+        if(el.dataset.plThemed)return;
+        el.dataset.plThemed='1';
+        var url=new URL(href,window.location.href);
+        if(a)url.searchParams.set('accent',a);
+        if(g)url.searchParams.set('glyph',g);
+        el.setAttribute('href',url.pathname.split('/').pop()+'?'+url.searchParams.toString());
+      });
+    }
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',propagateLinks);}else{propagateLinks();}
+  })();
+  </script><script src="pl-game-data.js"></script>
+<script src="pl-points.js" defer></script></head>
+<body>
+<div id="game-instructions" style="position:fixed;inset:0;background:#F0EAF8;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;font-family:'PLHand',cursive;">
+  <div style="max-width:500px;text-align:center;">
+    <p style="font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:#6B3FA8;margin-bottom:16px;">How to Play</p>
+    <h2 style="font-size:clamp(26px,4vw,40px);color:#0A0A0A;margin-bottom:20px;line-height:1.2;font-weight:400;">The Long Game</h2>
+    <p style="font-size:clamp(16px,2.5vw,20px);color:#3A1880;line-height:1.7;margin-bottom:36px;">Short games are for short beliefs. Mark today. Return tomorrow. The long game does not require perfect days — only return.</p>
+    <button id="begin-btn" style="font-family:'PLHand',cursive;font-size:20px;background:#6B3FA8;color:#F0EAF8;border:none;padding:14px 40px;cursor:pointer;letter-spacing:0.1em;">Begin</button>
+  </div>
+</div>
+<script>
+(function(){
+  var panel=document.getElementById('game-instructions');
+  if(!panel)return;
+  if(sessionStorage.getItem('pl_seen_'+location.pathname)){panel.style.display='none';return;}
+  document.getElementById('begin-btn').addEventListener('click',function(){
+    panel.style.display='none';
+    sessionStorage.setItem('pl_seen_'+location.pathname,'1');
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){panel.style.display='none';sessionStorage.setItem('pl_seen_'+location.pathname,'1');}
+  });
+})();
+</script>
+  <div id="p5-host"></div>
+  <nav class="nav-bar"><a class="nav-link" href="index.html">← Games</a></nav>
+  <div class="page">
+    <div id="streak-header">
+      <div id="days-count">0</div>
+      <div id="days-label">Days of Practice</div>
+      <div id="streak-phrase"></div>
+    </div>
+    <div id="check-in-section">
+      <div id="seed-display">The practice begins with one day.</div>
+      <button id="checkin-btn">Check In Today</button>
+      <div id="checkin-status"></div>
+    </div>
+    <div id="grid"></div>
+    <div id="milestone-msg"></div>
+  </div>
+  <div id="plhand">The long game pays.</div>
+
+<script>
+  /* ── Real vault seed phrases for daily reveals ────────────── */
+  // The daily seed is a REAL seed from the library (voice-clean). A guaranteed-clean set ships
+  // inline; the live PLGames spine upgrades it to a fresh draw, cached so each day stays stable.
+  const DAILY_FALLBACK = [
+    "I always win.",
+    "Knowing, not hoping.",
+    "Luxury is my natural state.",
+    "What we want, wants us.",
+    "Money is a thought before it is a number.",
+    "Turn the arrow inward.",
+    "Money rises without limit.",
+    "Thoughts become elevation.",
+    "Well protected, well dressed, well invested.",
+    "I move with trust, not fear.",
+    "Negative thoughts get no play.",
+    "Prepared for luxury.",
+    "What persists in the mind becomes your reality.",
+    "Never stay humble.",
+    "The practice is the proof.",
+    "Increase becomes the pulse.",
+  ];
+  let DAILY_SEEDS = (function () { try { return JSON.parse(localStorage.getItem('pl_daily_seeds')) || DAILY_FALLBACK.slice(); } catch { return DAILY_FALLBACK.slice(); } })();
+  async function ensureDailySeeds() {
+    try {
+      const s = (window.PLGames && await window.PLGames.seeds(30)) || [];
+      const phrases = [...new Set(s.map(x => x.phrase).filter(Boolean))];
+      if (phrases.length >= 12) {
+        DAILY_SEEDS = phrases;
+        try { localStorage.setItem('pl_daily_seeds', JSON.stringify(phrases)); } catch {}
+        if (typeof render === 'function') render();
+      }
+    } catch (e) { /* library quiet — the clean fallback carries the day */ }
+  }
+
+  const MILESTONES = {
+    1:   'Day one. The practice begins.',
+    7:   'One week. The pattern is forming.',
+    14:  'Two weeks. The curve remembers.',
+    21:  'Three weeks. It becomes the rhythm.',
+    30:  'One month. Despite the conditions.',
+    60:  'Two months. The practice compounds.',
+    90:  'Three months. What persists becomes real.',
+    180: 'Six months. The archive is growing.',
+    365: 'One year. No days off. Seven ahead.',
+  };
+
+  const KEY = 'pl_long_game';
+  const GAME = 'long_game';
+  function load() { try { return JSON.parse(localStorage.getItem(KEY)) || { days: [], lastCheckin: null }; } catch { return { days: [], lastCheckin: null }; } }
+  function save(s) {
+    try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {}
+    if (window.PLGames) PLGames.save(GAME, s);   // local copy + D1 when signed in
+  }
+
+  let state = load();
+  const today = new Date().toISOString().slice(0, 10);
+  const alreadyIn = state.lastCheckin === today;
+
+  const elCount    = document.getElementById('days-count');
+  const elPhrase   = document.getElementById('streak-phrase');
+  const elSeed     = document.getElementById('seed-display');
+  const elBtn      = document.getElementById('checkin-btn');
+  const elStatus   = document.getElementById('checkin-status');
+  const elGrid     = document.getElementById('grid');
+  const elMilestone = document.getElementById('milestone-msg');
+  const elHand     = document.getElementById('plhand');
+  let pulses       = [];
+
+  function getSeed(dayNum) {
+    return DAILY_SEEDS[(dayNum - 1) % DAILY_SEEDS.length];
+  }
+
+  function getMilestone(count) {
+    const ms = Object.keys(MILESTONES).map(Number).sort((a,b)=>a-b);
+    const m  = ms.filter(k => k <= count).pop();
+    return m ? MILESTONES[m] : '';
+  }
+
+  function render() {
+    const count = state.days.length;
+    elCount.textContent = count;
+    elPhrase.textContent = getMilestone(count) || (count > 0 ? 'Keep going.' : 'Begin the practice.');
+    elSeed.textContent = count > 0 ? getSeed(count) : 'The practice begins with one day.';
+    elMilestone.textContent = MILESTONES[count] || '';
+
+    // grid — last 365 days
+    elGrid.innerHTML = '';
+    const last365 = new Set(state.days.slice(-365));
+    for (let i = 0; i < 52 * 7; i++) {
+      const d = new Date(); d.setDate(d.getDate() - (52 * 7 - 1 - i));
+      const ds = d.toISOString().slice(0, 10);
+      const cell = document.createElement('div');
+      cell.className = 'day-cell' + (last365.has(ds) ? ' done' : '') + (ds === today ? ' today' : '');
+      cell.title = ds;
+      elGrid.appendChild(cell);
+    }
+
+    if (alreadyIn || state.lastCheckin === today) {
+      elBtn.disabled = true;
+      elStatus.textContent = 'Checked in today.';
+    }
+  }
+
+  function checkin() {
+    if (state.lastCheckin === today) return;
+    state.days.push(today);
+    state.lastCheckin = today;
+    save(state);
+    pulses.push(1);
+    elBtn.disabled = true;
+    elStatus.textContent = 'Practice recorded.';
+    render();
+    if (MILESTONES[state.days.length]) {
+      elHand.style.opacity = '1';
+      setTimeout(() => { elHand.style.opacity = '0'; }, 3000);
+    }
+  }
+
+  elBtn.addEventListener('click', checkin);
+  render();
+  ensureDailySeeds();
+
+  /* ── cross-device: union the day-grid with D1 state when signed in ── */
+  if (window.PLGames) {
+    PLGames.load(GAME).then(remote => {
+      if (!remote || !Array.isArray(remote.days) || !remote.days.length) return;
+      state.days = Array.from(new Set([...(state.days || []), ...remote.days])).sort();
+      if (remote.lastCheckin && (!state.lastCheckin || remote.lastCheckin > state.lastCheckin)) state.lastCheckin = remote.lastCheckin;
+      save(state);
+      render();
+    }).catch(() => {});
+  }
+
+  /* ── p5 growing archive field ─────────────────────────────── */
+  const sketch = p => {
+    let nodes = [];
+    const count = () => state.days.length;
+
+    p.setup = () => {
+      const cnv = p.createCanvas(p.windowWidth, p.windowHeight);
+      cnv.parent('p5-host');
+    };
+
+    p.draw = () => {
+      p.clear();
+      const target = Math.min(count() * 3 + 5, 120);
+      while (nodes.length < target) {
+        nodes.push({ x: p.random(p.windowWidth), y: p.random(p.windowHeight), vx: p.random(-0.2,0.2), vy: p.random(-0.2,0.2) });
+      }
+
+      const alpha = Math.min(8 + count() * 0.5, 35);
+      nodes.forEach(n => {
+        n.x += n.vx; n.y += n.vy;
+        if (n.x < 0 || n.x > p.windowWidth)  n.vx *= -1;
+        if (n.y < 0 || n.y > p.windowHeight) n.vy *= -1;
+        p.fill(201, 168, 76, alpha); p.noStroke(); p.ellipse(n.x, n.y, 2);
+      });
+
+      while (pulses.length > 0) {
+        pulses.pop();
+        for (let i = 0; i < 30; i++) {
+          const a = p.random(p.TWO_PI);
+          nodes.push({ x: p.windowWidth/2, y: p.windowHeight/2, vx: Math.cos(a)*p.random(1,4), vy: Math.sin(a)*p.random(1,4) });
+        }
+      }
+    };
+    p.windowResized = () => p.resizeCanvas(p.windowWidth, p.windowHeight);
+  };
+  document.addEventListener('DOMContentLoaded', () => { new p5(sketch); });
+</script>
+</body>
+</html>

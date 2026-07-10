@@ -1,0 +1,841 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reality Architect — PL Beta Games</title>
+
+  <style>
+    @font-face {
+      font-family: 'PLHand';
+      src: url('fonts/MaurriceMccannPsychedHandwrit-Regular.otf') format('opentype'),
+           url('fonts/MaurriceMccannPsychedHandwrit-Regular.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+    }
+  </style>
+
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --void: #F0EAF8;
+      --gold: #6B3FA8;
+      --gold-bright: #9B6FD8;
+      --gold-dim: #4A2880;
+      --bone: #0A0A0A;
+      --ash: #7A6090;
+      --border: #C4A8E8;
+    }
+
+    body {
+      background: var(--void);
+      color: var(--bone);
+      font-family: 'PLHand', cursive;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* p5 layer — grid + connection arcs */
+    #p5-host {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      pointer-events: none;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 32px;
+      border-bottom: 1px solid #151515;
+      position: relative;
+      flex-shrink: 0;
+      z-index: 90;
+    }
+
+    .back {
+      font-size: 10px;
+      letter-spacing: 0.35em;
+      color: var(--gold-dim);
+      text-decoration: none;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .back:hover { color: var(--gold); }
+
+    .title-bar {
+      font-family: 'PLHand', cursive;
+      font-size: 18px;
+      font-weight: 300;
+      letter-spacing: 0.2em;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .step-indicator {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      color: var(--ash);
+      text-transform: uppercase;
+    }
+
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 60px 24px 80px;
+      position: relative;
+      z-index: 5;
+    }
+
+    /* Screen switching */
+    .screen { display: none; flex-direction: column; align-items: center; gap: 32px; width: 100%; max-width: 680px; }
+    .screen.active { display: flex; }
+
+    /* IDLE */
+    .idle-law {
+      font-size: 9px;
+      letter-spacing: 0.6em;
+      color: var(--gold-dim);
+      text-transform: uppercase;
+    }
+
+    .idle-headline {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(32px, 7vw, 60px);
+      font-weight: 300;
+      color: var(--bone);
+      text-align: center;
+      letter-spacing: 0.05em;
+      line-height: 1.1;
+    }
+
+    .idle-law-quote {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(15px, 2.5vw, 20px);
+      font-style: italic;
+      color: var(--gold);
+      text-align: center;
+      line-height: 1.5;
+      letter-spacing: 0.03em;
+    }
+
+    .idle-desc {
+      font-size: 12px;
+      color: var(--ash);
+      line-height: 2;
+      text-align: center;
+      max-width: 400px;
+    }
+
+    .btn {
+      background: transparent;
+      border: 1px solid var(--gold-dim);
+      color: var(--gold);
+      font-family: 'Inter', sans-serif;
+      font-size: 10px;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      padding: 14px 36px;
+      min-height: 44px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn:hover { border-color: var(--gold); color: var(--bone); }
+    .btn:disabled { opacity: 0.3; pointer-events: none; }
+
+    /* BUILD screen */
+    .build-phase-label {
+      font-size: 10px;
+      letter-spacing: 0.45em;
+      color: var(--gold-dim);
+      text-transform: uppercase;
+      align-self: flex-start;
+    }
+
+    .pillars {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      width: 100%;
+    }
+
+    .pillar {
+      background: #FDFBFF;
+      border: 1px solid var(--border);
+      padding: 28px 28px 24px;
+      transition: border-color 0.3s;
+    }
+
+    .pillar.active-pillar { border-color: var(--gold-dim); }
+    .pillar.complete { border-left: 2px solid var(--gold-dim); }
+
+    .pillar-header {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .pillar-num {
+      font-size: 10px;
+      letter-spacing: 0.4em;
+      color: var(--gold-dim);
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    .pillar-name {
+      font-family: 'PLHand', cursive;
+      font-size: 22px;
+      font-weight: 400;
+      color: var(--bone);
+      letter-spacing: 0.06em;
+    }
+
+    .pillar-desc {
+      font-size: 11px;
+      color: var(--ash);
+      line-height: 1.7;
+      margin-bottom: 20px;
+    }
+
+    .pillar-input-wrap { position: relative; }
+
+    .pillar-input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid #C4A8E8;
+      color: var(--bone);
+      font-family: 'PLHand', cursive;
+      font-size: 18px;
+      font-weight: 300;
+      padding: 8px 0;
+      outline: none;
+      letter-spacing: 0.02em;
+      transition: border-color 0.2s;
+    }
+
+    .pillar-input::placeholder { color: #9A80C0; font-style: italic; }
+    .pillar-input:focus { border-bottom-color: var(--gold-dim); }
+
+    .score-bar-wrap {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      height: 16px;
+    }
+
+    .score-bar {
+      flex: 1;
+      height: 1px;
+      background: #C4A8E8;
+      position: relative;
+    }
+
+    .score-bar-fill {
+      height: 1px;
+      background: var(--gold-dim);
+      width: 0;
+      transition: width 0.5s ease, background 0.3s;
+    }
+
+    .score-bar-fill.high { background: var(--gold); }
+
+    .score-label {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: var(--ash);
+      min-width: 80px;
+      text-align: right;
+    }
+
+    .score-label.good { color: var(--gold); }
+
+    .coaching-tip {
+      font-size: 11px;
+      color: var(--ash);
+      font-style: italic;
+      margin-top: 6px;
+      min-height: 16px;
+      transition: color 0.2s;
+    }
+    .coaching-tip.signal { color: var(--gold-dim); }
+
+    /* BLUEPRINT */
+    .blueprint-label {
+      font-size: 10px;
+      letter-spacing: 0.6em;
+      color: var(--gold-dim);
+      text-transform: uppercase;
+    }
+
+    .blueprint-headline {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(22px, 5vw, 38px);
+      font-weight: 300;
+      color: var(--bone);
+      letter-spacing: 0.05em;
+      text-align: center;
+    }
+
+    .blueprint-card {
+      background: #FDFBFF;
+      border: 1px solid var(--gold-dim);
+      padding: 48px 40px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      position: relative;
+    }
+
+    .blueprint-card::before {
+      content: 'PSYCHED LUXURIES';
+      position: absolute;
+      top: 18px;
+      right: 24px;
+      font-size: 8px;
+      letter-spacing: 0.4em;
+      color: var(--gold-dim);
+    }
+
+    .blueprint-card::after {
+      content: attr(data-date);
+      position: absolute;
+      bottom: 18px;
+      right: 24px;
+      font-size: 8px;
+      letter-spacing: 0.2em;
+      color: #9A80C0;
+    }
+
+    .blueprint-pillar {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .bp-pillar-label {
+      font-size: 9px;
+      letter-spacing: 0.5em;
+      color: var(--gold-dim);
+      text-transform: uppercase;
+    }
+
+    .bp-pillar-text {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(16px, 3vw, 22px);
+      font-weight: 300;
+      color: var(--bone);
+      line-height: 1.4;
+      letter-spacing: 0.02em;
+    }
+
+    .bp-divider {
+      width: 100%;
+      height: 1px;
+      background: #C4A8E8;
+    }
+
+    .blueprint-total {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .bp-total-label {
+      font-size: 9px;
+      letter-spacing: 0.4em;
+      color: var(--ash);
+      text-transform: uppercase;
+    }
+
+    .bp-total-score {
+      font-family: 'PLHand', cursive;
+      font-size: 28px;
+      font-weight: 300;
+      color: var(--gold);
+    }
+
+    .bp-verdict {
+      font-family: 'PLHand', cursive;
+      font-size: 14px;
+      font-style: italic;
+      color: var(--ash);
+      text-align: center;
+    }
+
+    .blueprint-actions {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid #C4A8E8;
+      color: var(--ash);
+      font-family: 'PLHand', cursive;
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      padding: 12px 24px;
+      min-height: 44px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-secondary:hover { border-color: #9B6FD8; color: var(--bone); }
+
+    /* PLHand closing declaration */
+    .watch-this {
+      font-family: 'PLHand', 'Cormorant Garamond', Georgia, serif;
+      font-size: clamp(22px, 4vw, 30px);
+      color: var(--gold);
+      letter-spacing: 0.06em;
+      margin-top: 8px;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .screen.active {
+      animation: fadeUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .pillar-card {
+      transition: border-color 0.25s, box-shadow 0.25s;
+    }
+    .pillar-card:focus-within {
+      border-color: var(--gold-dim);
+      box-shadow: 0 0 0 1px var(--gold-dim);
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--gold-dim);
+      outline-offset: 3px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      #p5-host { display: none; }
+    }
+  </style>
+  <!-- PL theme injection: reads accent/glyph from URL params or sessionStorage -->
+  <script id="pl-theme">
+  (function(){
+    function hexToRgb(h){h=h.replace(/^#/,'');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function clamp(v){return Math.max(0,Math.min(255,Math.round(v)));}
+    function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(x){return clamp(x).toString(16).padStart(2,'0')}).join('');}
+    function lighten(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]+(255-c[0])*pct,c[1]+(255-c[1])*pct,c[2]+(255-c[2])*pct);}
+    function darken(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]*(1-pct),c[1]*(1-pct),c[2]*(1-pct));}
+    function isHex(s){return /^#?[0-9a-fA-F]{6}$/.test(s);}
+    function applyAccent(accent){
+      var h=accent.startsWith('#')?accent:'#'+accent;
+      var el=document.documentElement;
+      el.style.setProperty('--gold',h);
+      el.style.setProperty('--gold-bright',lighten(h,0.18));
+      el.style.setProperty('--gold-light',lighten(h,0.14));
+      el.style.setProperty('--gold-dim',darken(h,0.25));
+      el.style.setProperty('--gold-muted',darken(h,0.12));
+    }
+    var params=new URLSearchParams(window.location.search);
+    var accent=params.get('accent')||'';
+    var glyph=params.get('glyph')||'';
+    if(accent&&isHex(accent)){
+      sessionStorage.setItem('pl_accent',accent);
+      applyAccent(accent);
+    } else {
+      var sa=sessionStorage.getItem('pl_accent');
+      if(sa&&isHex(sa)){applyAccent(sa);}
+    }
+    if(glyph){sessionStorage.setItem('pl_glyph',glyph);}
+    window.PL_GLYPH=glyph||sessionStorage.getItem('pl_glyph')||'';
+    function propagateLinks(){
+      var a=sessionStorage.getItem('pl_accent');
+      var g=sessionStorage.getItem('pl_glyph');
+      if(!a&&!g)return;
+      var links=document.querySelectorAll('a[href]');
+      links.forEach(function(el){
+        var href=el.getAttribute('href');
+        if(!href||href.startsWith('http')||href.startsWith('//')||href.startsWith('#'))return;
+        if(!href.endsWith('.html'))return;
+        if(el.dataset.plThemed)return;
+        el.dataset.plThemed='1';
+        var url=new URL(href,window.location.href);
+        if(a)url.searchParams.set('accent',a);
+        if(g)url.searchParams.set('glyph',g);
+        el.setAttribute('href',url.pathname.split('/').pop()+'?'+url.searchParams.toString());
+      });
+    }
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',propagateLinks);}else{propagateLinks();}
+  })();
+  </script><script src="pl-game-data.js"></script>
+<script src="pl-points.js" defer></script></head>
+<body>
+
+<div id="game-instructions" style="position:fixed;inset:0;z-index:1000;background:#F0EAF8;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center;">
+  <p style="font-family:'PLHand',cursive;font-size:9px;letter-spacing:0.5em;text-transform:uppercase;color:#4A2880;margin-bottom:16px;">How to Play</p>
+  <h2 style="font-family:'PLHand',cursive;font-size:clamp(28px,6vw,52px);color:#0A0A0A;font-weight:400;margin-bottom:20px;">Reality Architect</h2>
+  <p style="font-family:'PLHand',cursive;font-size:clamp(14px,2vw,18px);color:#2D1A50;max-width:480px;line-height:1.7;margin-bottom:32px;">State your reality across three pillars — Self, Wealth, World. The system scores your clarity in real time. Vague language fails. Precise, present-tense commands build architecture. Seal the blueprint when all three pillars are complete.</p>
+  <button id="begin-btn" style="font-family:'PLHand',cursive;font-size:12px;letter-spacing:0.4em;text-transform:uppercase;padding:16px 40px;background:transparent;border:1px solid #4A2880;color:#6B3FA8;cursor:pointer;">Begin</button>
+</div>
+
+<!-- p5 layer: fine grid background + connection arc pulses -->
+<div id="p5-host"></div>
+
+<header>
+  <a class="back" href="index.html">← Games</a>
+  <span class="title-bar">Reality Architect</span>
+  <span class="step-indicator" id="stepIndicator">—</span>
+</header>
+
+<div class="main">
+
+  <!-- IDLE -->
+  <div class="screen active" id="screenIdle">
+    <p class="idle-law">The Second Truth</p>
+    <h1 class="idle-headline">Build the Structure<br>of Your Reality</h1>
+    <p class="idle-law-quote">"You are in control of your reality."</p>
+    <p class="idle-desc">Reality requires architecture. Not wishes — intentions. Not vague wants — precise commands. Three pillars. State what you are building. The system scores your clarity.</p>
+    <button class="btn" id="startBuildBtn">Begin Building</button>
+  </div>
+
+  <!-- BUILD -->
+  <div class="screen" id="screenBuild">
+    <p class="build-phase-label">State your intentions precisely</p>
+    <div class="pillars" id="pillarsContainer"></div>
+    <button class="btn" id="sealBuildBtn" disabled>Seal the Blueprint →</button>
+  </div>
+
+  <!-- BLUEPRINT -->
+  <div class="screen" id="screenBlueprint">
+    <p class="blueprint-label">Your Reality Architecture</p>
+    <p class="blueprint-headline">The structure is built.</p>
+    <div class="blueprint-card" id="blueprintCard">
+      <div class="blueprint-pillar">
+        <p class="bp-pillar-label">Self</p>
+        <p class="bp-pillar-text" id="bpSelf">—</p>
+      </div>
+      <div class="bp-divider"></div>
+      <div class="blueprint-pillar">
+        <p class="bp-pillar-label">Wealth</p>
+        <p class="bp-pillar-text" id="bpWealth">—</p>
+      </div>
+      <div class="bp-divider"></div>
+      <div class="blueprint-pillar">
+        <p class="bp-pillar-label">World</p>
+        <p class="bp-pillar-text" id="bpWorld">—</p>
+      </div>
+      <div class="bp-divider"></div>
+      <div class="blueprint-total">
+        <span class="bp-total-label">Clarity Score</span>
+        <span class="bp-total-score" id="bpTotalScore">—</span>
+      </div>
+      <p class="bp-verdict" id="bpVerdict"></p>
+    </div>
+    <div class="blueprint-actions">
+      <button class="btn" id="rebuildBtn">Rebuild</button>
+      <button class="btn-secondary" id="saveBtn">Save to Vault</button>
+    </div>
+    <div class="watch-this">Watch this.</div>
+  </div>
+
+</div>
+
+<script>
+  const PILLARS = [
+    {
+      id: 'self',
+      name: 'Self',
+      desc: 'Who you are becoming. Your identity, your practice, your state of being.',
+      placeholder: 'I am becoming...',
+    },
+    {
+      id: 'wealth',
+      name: 'Wealth',
+      desc: 'What you are drawing toward you. Resources, abundance, material reality.',
+      placeholder: 'Money flows to me because...',
+    },
+    {
+      id: 'world',
+      name: 'World',
+      desc: 'What you are contributing. Your reach, your impact, how your reality serves others.',
+      placeholder: 'My presence changes...',
+    },
+  ];
+
+  // Clarity scoring
+  const WEAK_WORDS = ['maybe', 'try', 'hope', 'want', 'wish', 'might', 'could', 'would like', 'someday', 'eventually'];
+  const STRONG_VERBS = ['am', 'is', 'are', 'have', 'create', 'build', 'attract', 'generate', 'lead', 'command', 'hold', 'own', 'shape', 'become', 'draw', 'move', 'know', 'see', 'stand', 'walk'];
+  const PRESENT_MARKERS = ["'m", " am ", " is ", " are ", " have ", " do ", " does "];
+
+  function scoreIntention(text) {
+    if (!text || text.trim().length < 5) return { score: 0, tip: 'Begin stating your intention.', level: 'empty' };
+    const t = text.toLowerCase();
+    const words = t.split(/\s+/).filter(Boolean);
+    if (words.length < 4) return { score: 15, tip: 'Too brief. Go deeper.', level: 'low' };
+
+    let score = 30;
+    const issues = [];
+    const signals = [];
+
+    let weakCount = 0;
+    for (const w of WEAK_WORDS) {
+      if (t.includes(w)) { weakCount++; issues.push(`Remove "${w}" — hedging weakens the command.`); }
+    }
+    score -= weakCount * 12;
+
+    let hasPresent = false;
+    for (const m of PRESENT_MARKERS) {
+      if (t.includes(m)) { hasPresent = true; break; }
+    }
+    if (hasPresent) { score += 20; signals.push('Present tense — good.'); }
+    else { issues.push('State it in present tense.'); }
+
+    let verbCount = 0;
+    for (const v of STRONG_VERBS) {
+      if (words.includes(v)) verbCount++;
+    }
+    score += Math.min(verbCount * 8, 20);
+    if (verbCount > 0) signals.push('Active voice detected.');
+
+    if (words.length >= 8)  score += 10;
+    if (words.length >= 14) score += 5;
+    if (text.includes('?')) { score -= 20; issues.push('Remove the question. State the command.'); }
+
+    score = Math.max(5, Math.min(100, score));
+
+    let tip = '', level = '';
+    if (score >= 80)      { level = 'high'; tip = 'Precise. This intention has structure.'; }
+    else if (score >= 55) { level = 'mid';  tip = issues[0] || signals[0] || 'Developing clarity.'; }
+    else                  { level = 'low';  tip = issues[0] || 'State it more directly. Present tense. Active command.'; }
+
+    return { score, tip, level };
+  }
+
+  const inputs = {};
+  const scores = {};
+
+  function buildPillars() {
+    const container = document.getElementById('pillarsContainer');
+    container.innerHTML = '';
+    PILLARS.forEach((p, idx) => {
+      const el = document.createElement('div');
+      el.className = 'pillar' + (idx === 0 ? ' active-pillar' : '');
+      el.id = `pillar-${p.id}`;
+      el.innerHTML = `
+        <div class="pillar-header">
+          <span class="pillar-num">0${idx + 1}</span>
+          <span class="pillar-name">${p.name}</span>
+        </div>
+        <p class="pillar-desc">${p.desc}</p>
+        <div class="pillar-input-wrap">
+          <input type="text" class="pillar-input" id="input-${p.id}" placeholder="${p.placeholder}" maxlength="180" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="score-bar-wrap">
+          <div class="score-bar"><div class="score-bar-fill" id="bar-${p.id}"></div></div>
+          <span class="score-label" id="scoreLabel-${p.id}">Clarity: —</span>
+        </div>
+        <p class="coaching-tip" id="tip-${p.id}">Begin stating your intention.</p>
+      `;
+      container.appendChild(el);
+
+      const input = el.querySelector(`#input-${p.id}`);
+      input.addEventListener('input', () => onInput(p.id, input.value));
+      input.addEventListener('focus', () => {
+        document.querySelectorAll('.pillar').forEach(pEl => pEl.classList.remove('active-pillar'));
+        el.classList.add('active-pillar');
+      });
+
+      scores[p.id] = 0;
+      inputs[p.id] = '';
+    });
+  }
+
+  function onInput(id, value) {
+    inputs[id] = value;
+    const { score, tip, level } = scoreIntention(value);
+    scores[id] = score;
+
+    document.getElementById(`bar-${id}`).style.width = `${score}%`;
+    document.getElementById(`bar-${id}`).className = `score-bar-fill${level === 'high' ? ' high' : ''}`;
+    document.getElementById(`scoreLabel-${id}`).textContent = `Clarity: ${score}%`;
+    document.getElementById(`scoreLabel-${id}`).className = `score-label${level === 'high' ? ' good' : ''}`;
+    document.getElementById(`tip-${id}`).textContent = tip;
+    document.getElementById(`tip-${id}`).className = `coaching-tip${level === 'high' ? ' signal' : ''}`;
+
+    if (value.trim().length > 5) document.getElementById(`pillar-${id}`).classList.add('complete');
+    else document.getElementById(`pillar-${id}`).classList.remove('complete');
+
+    checkAllFilled();
+  }
+
+  function checkAllFilled() {
+    const allFilled = PILLARS.every(p => (inputs[p.id] || '').trim().length > 5);
+    document.getElementById('sealBuildBtn').disabled = !allFilled;
+  }
+
+  function sealBlueprint() {
+    const totalScore = Math.round(PILLARS.reduce((sum, p) => sum + (scores[p.id] || 0), 0) / PILLARS.length);
+
+    document.getElementById('bpSelf').textContent   = inputs['self']   || '—';
+    document.getElementById('bpWealth').textContent = inputs['wealth'] || '—';
+    document.getElementById('bpWorld').textContent  = inputs['world']  || '—';
+    document.getElementById('bpTotalScore').textContent = `${totalScore}%`;
+
+    const verdicts = [
+      'Vague. The universe cannot build from fog.',
+      'The structure is forming. Precision is the next step.',
+      'Clear enough to act on. Sharpen further.',
+      'This is architecture. The reality is buildable.',
+      'Exceptional clarity. This is a command, not a wish.',
+    ];
+    document.getElementById('bpVerdict').textContent = verdicts[Math.min(Math.floor(totalScore / 25), verdicts.length - 1)];
+
+    const now = new Date();
+    document.getElementById('blueprintCard').dataset.date = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    document.getElementById('stepIndicator').textContent = 'Blueprint';
+    showScreen('screenBlueprint');
+
+    // Trigger connection arc pulse after layout paints
+    requestAnimationFrame(() => requestAnimationFrame(() => triggerConnectionPulse()));
+
+    try {
+      localStorage.setItem('pl_reality_arch', JSON.stringify({
+        self: inputs['self'], wealth: inputs['wealth'], world: inputs['world'],
+        score: totalScore, date: now.toISOString(),
+      }));
+    } catch(e) {}
+  }
+
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  document.getElementById('startBuildBtn').addEventListener('click', () => {
+    buildPillars();
+    document.getElementById('stepIndicator').textContent = 'Building';
+    showScreen('screenBuild');
+    setTimeout(() => document.getElementById('input-self')?.focus(), 100);
+  });
+
+  document.getElementById('sealBuildBtn').addEventListener('click', sealBlueprint);
+
+  document.getElementById('rebuildBtn').addEventListener('click', () => {
+    buildPillars();
+    document.getElementById('stepIndicator').textContent = 'Building';
+    showScreen('screenBuild');
+    setTimeout(() => document.getElementById('input-self')?.focus(), 100);
+  });
+
+  document.getElementById('saveBtn').addEventListener('click', () => {
+    const btn = document.getElementById('saveBtn');
+    btn.textContent = 'Saved.';
+    btn.style.color = 'var(--gold)';
+    setTimeout(() => { btn.textContent = 'Save to Vault'; btn.style.color = ''; }, 2000);
+  });
+
+  // ── p5 — fine grid background + connection arc pulses ─────────────────────
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let arcPulses = [];
+
+  function triggerConnectionPulse() {
+    if (prefersReduced) return;
+    const ids = ['bpSelf', 'bpWealth', 'bpWorld'];
+    const nodes = ids.map(id => {
+      const rect = document.getElementById(id).getBoundingClientRect();
+      return { x: rect.left + rect.width * 0.25, y: rect.top + rect.height / 2 };
+    });
+    // Fire Self→Wealth, Wealth→World with staggered start
+    setTimeout(() => addArcPulse(nodes[0], nodes[1]), 0);
+    setTimeout(() => addArcPulse(nodes[1], nodes[2]), 180);
+  }
+
+  function addArcPulse(from, to) {
+    arcPulses.push({ x1: from.x, y1: from.y, x2: to.x, y2: to.y, t: 0 });
+  }
+
+  const gridSketch = p => {
+    p.setup = () => {
+      const cnv = p.createCanvas(p.windowWidth, p.windowHeight);
+      cnv.parent('p5-host');
+      p.noFill();
+    };
+
+    p.draw = () => {
+      p.clear();
+      if (prefersReduced) return;
+
+      // Fine grid — purple at 0.06 opacity
+      p.stroke(107, 63, 168, Math.round(0.06 * 255));
+      p.strokeWeight(0.5);
+      const step = 72;
+      for (let x = 0; x < p.width; x += step)  p.line(x, 0, x, p.height);
+      for (let y = 0; y < p.height; y += step)  p.line(0, y, p.width, y);
+
+      // Connection arc pulses — gold, lineWidth 4→0 over 20 frames
+      arcPulses = arcPulses.filter(a => a.t < 20);
+      arcPulses.forEach(a => {
+        const progress = a.t / 20;
+        const alpha  = Math.round((1 - progress) * 200);
+        const weight = (1 - progress) * 4;
+
+        const mx  = (a.x1 + a.x2) / 2;
+        const my  = (a.y1 + a.y2) / 2;
+        const dx  = a.x2 - a.x1;
+        const dy  = a.y2 - a.y1;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        const cx  = mx - (dy / len) * len * 0.2;
+        const cy  = my + (dx / len) * len * 0.2;
+
+        p.stroke(107, 63, 168, alpha);
+        p.strokeWeight(weight);
+        p.bezier(a.x1, a.y1, cx, cy, cx, cy, a.x2, a.y2);
+        a.t++;
+      });
+    };
+
+    p.windowResized = () => {
+      p.resizeCanvas(p.windowWidth, p.windowHeight);
+    };
+  };
+
+  if (typeof p5 !== 'undefined' && !prefersReduced) {
+    new p5(gridSketch);
+  }
+
+  (function() {
+    const panel = document.getElementById('game-instructions');
+    if (!panel) return;
+    if (sessionStorage.getItem('pl_instructions_seen_' + location.pathname)) { panel.style.display = 'none'; return; }
+    document.getElementById('begin-btn').addEventListener('click', function() {
+      panel.style.display = 'none';
+      sessionStorage.setItem('pl_instructions_seen_' + location.pathname, '1');
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { panel.style.display = 'none'; sessionStorage.setItem('pl_instructions_seen_' + location.pathname, '1'); }
+    });
+  })();
+</script>
+</body>
+</html>

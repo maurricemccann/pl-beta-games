@@ -1,0 +1,920 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Seeds — PL Beta Games</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js" defer></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @font-face {
+      font-family: 'PLHand';
+      src: url('fonts/MaurriceMccannPsychedHandwrit-Regular.otf') format('opentype'),
+           url('fonts/MaurriceMccannPsychedHandwrit-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --void: #F8F2E4;
+      --gold: #B8861C;
+      --gold-bright: #D4A830;
+      --gold-dim: #7A5C14;
+      --bone: #0A0A0A;
+      --ash: #3A3020;
+    }
+
+    body {
+      background: var(--void);
+      color: var(--bone);
+      font-family: 'PLHand', cursive;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 32px;
+      border-bottom: 1px solid #D4AF6A;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .back {
+      font-size: 10px;
+      letter-spacing: 0.35em;
+      color: var(--gold-dim);
+      text-decoration: none;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .back:hover { color: var(--gold); }
+
+    .title {
+      font-family: 'PLHand', cursive;
+      font-size: 18px;
+      font-weight: 400;
+      letter-spacing: 0.2em;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .hdr-right {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+    }
+
+    .stat-label {
+      font-size: 9px;
+      letter-spacing: 0.3em;
+      color: var(--ash);
+      text-transform: uppercase;
+    }
+
+    .stat-value {
+      font-family: 'PLHand', cursive;
+      font-size: 22px;
+      font-weight: 400;
+      color: var(--gold);
+      line-height: 1;
+    }
+
+    .stat-value.urgent { color: #B44; }
+
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 48px 24px 80px;
+      max-width: 760px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* IDLE */
+    .idle-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      margin-top: 80px;
+      text-align: center;
+    }
+
+    .idle-headline {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(24px, 6vw, 44px);
+      font-weight: 400;
+      color: var(--bone);
+      letter-spacing: 0.06em;
+    }
+
+    .idle-desc {
+      font-size: 13px;
+      color: var(--ash);
+      line-height: 1.9;
+      max-width: 400px;
+    }
+
+    .start-btn, .action-btn {
+      background: transparent;
+      border: 1px solid var(--gold-dim);
+      color: var(--gold);
+      font-family: 'PLHand', cursive;
+      font-size: 10px;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      padding: 14px 36px;
+      min-height: 44px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .start-btn:hover, .action-btn:hover {
+      border-color: var(--gold);
+      color: var(--bone);
+    }
+
+    /* GAME AREA */
+    .game-area {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 40px;
+      width: 100%;
+    }
+
+    .progress-bar {
+      display: flex;
+      gap: 8px;
+    }
+
+    .progress-pip {
+      width: 24px;
+      height: 2px;
+      background: #D4AF6A;
+      transition: background 0.3s;
+    }
+    .progress-pip.done { background: var(--gold); }
+    .progress-pip.active { background: var(--gold-dim); animation: pulse-pip 1s ease infinite alternate; }
+
+    @keyframes pulse-pip {
+      from { background: var(--gold-dim); }
+      to   { background: var(--gold); }
+    }
+
+    .seed-label {
+      font-size: 10px;
+      letter-spacing: 0.45em;
+      color: var(--gold-dim);
+      text-transform: uppercase;
+    }
+
+    .seed-title {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(18px, 4vw, 32px);
+      font-weight: 400;
+      color: var(--bone);
+      letter-spacing: 0.04em;
+      text-align: center;
+      line-height: 1.3;
+      max-width: 600px;
+      font-style: normal;
+    }
+
+    .timer-bar-wrap {
+      width: 100%;
+      height: 1px;
+      background: #D4AF6A;
+      position: relative;
+    }
+
+    .timer-bar {
+      height: 1px;
+      background: var(--gold);
+      width: 100%;
+      transform-origin: left;
+      transition: background 0.3s;
+    }
+
+    .timer-bar.urgent { background: #B44; }
+
+    /* Word bank — p5 particle host wraps this */
+    .word-bank-wrap {
+      position: relative;
+      width: 100%;
+    }
+
+    #p5-seeds-host {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+    }
+    #p5-seeds-host canvas { display: block; width: 100% !important; height: 100% !important; }
+
+    .word-bank {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      min-height: 60px;
+      width: 100%;
+      position: relative;
+      z-index: 1;
+    }
+
+    .word-chip {
+      background: transparent;
+      border: 1px solid #D4AF6A;
+      color: var(--bone);
+      font-family: 'PLHand', cursive;
+      font-size: clamp(14px, 3vw, 18px);
+      font-weight: 400;
+      padding: 8px 16px;
+      min-height: 44px;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, background 0.2s, transform 0.15s;
+      letter-spacing: 0.02em;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .word-chip:hover:not(:disabled) {
+      border-color: var(--gold-dim);
+      color: var(--gold);
+      transform: translateY(-2px);
+    }
+
+    .word-chip:disabled {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .tray-label {
+      font-size: 9px;
+      letter-spacing: 0.4em;
+      color: var(--ash);
+      text-transform: uppercase;
+      align-self: flex-start;
+    }
+
+    .tray {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-start;
+      width: 100%;
+      min-height: 48px;
+      padding: 16px;
+      border: 1px solid #D4AF6A;
+      background: #FFFFFF;
+      position: relative;
+    }
+
+    .tray-placeholder {
+      font-family: 'PLHand', cursive;
+      font-size: 15px;
+      font-style: normal;
+      color: #7A6840;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .answer-chip {
+      background: #FFF8E8;
+      border: 1px solid #D4AF6A;
+      color: var(--bone);
+      font-family: 'PLHand', cursive;
+      font-size: clamp(14px, 3vw, 18px);
+      font-weight: 400;
+      padding: 8px 16px;
+      min-height: 44px;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.02em;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .answer-chip:hover { border-color: var(--gold); color: #7A5C14; }
+
+    .tray.flash-correct { border-color: var(--gold); background: rgba(184,134,28,0.05); }
+    .tray.flash-wrong   { border-color: #8C4A1A; background: rgba(140,74,26,0.06); }
+
+    .feedback {
+      font-family: 'PLHand', cursive;
+      font-size: 18px;
+      font-style: normal;
+      color: var(--gold);
+      min-height: 28px;
+      text-align: center;
+    }
+
+    /* RESULT OVERLAY */
+    .result-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(248,242,228,0.97);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s;
+      z-index: 100;
+      padding: 40px 24px;
+    }
+    .result-overlay.visible {
+      opacity: 1;
+      pointer-events: all;
+      animation: fadeUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .result-label {
+      font-size: 10px;
+      letter-spacing: 0.5em;
+      color: var(--gold-dim);
+      text-transform: uppercase;
+    }
+
+    .result-score {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(64px, 15vw, 120px);
+      font-weight: 400;
+      color: var(--gold);
+      line-height: 1;
+    }
+
+    .result-verdict {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(16px, 4vw, 24px);
+      font-weight: 400;
+      font-style: normal;
+      color: var(--bone);
+      text-align: center;
+      max-width: 400px;
+    }
+
+    .result-rounds {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .result-round {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .result-round-val {
+      font-family: 'PLHand', cursive;
+      font-size: 28px;
+      font-weight: 400;
+      color: var(--gold);
+    }
+    .result-round-val.zero { color: #444; }
+
+    .result-round-label {
+      font-size: 9px;
+      letter-spacing: 0.3em;
+      color: var(--ash);
+      text-transform: uppercase;
+    }
+
+    .watch-this {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(22px, 4vw, 36px);
+      color: var(--gold);
+      letter-spacing: 0.05em;
+      margin-top: 8px;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    :focus-visible { outline: 2px solid var(--gold-dim); outline-offset: 3px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      #p5-seeds-host { display: none; }
+    }
+  </style>
+  <!-- PL theme injection: reads accent/glyph from URL params or sessionStorage -->
+  <script id="pl-theme">
+  (function(){
+    function hexToRgb(h){h=h.replace(/^#/,'');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function clamp(v){return Math.max(0,Math.min(255,Math.round(v)));}
+    function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(x){return clamp(x).toString(16).padStart(2,'0')}).join('');}
+    function lighten(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]+(255-c[0])*pct,c[1]+(255-c[1])*pct,c[2]+(255-c[2])*pct);}
+    function darken(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]*(1-pct),c[1]*(1-pct),c[2]*(1-pct));}
+    function isHex(s){return /^#?[0-9a-fA-F]{6}$/.test(s);}
+    function applyAccent(accent){
+      var h=accent.startsWith('#')?accent:'#'+accent;
+      var el=document.documentElement;
+      el.style.setProperty('--gold',h);
+      el.style.setProperty('--gold-bright',lighten(h,0.18));
+      el.style.setProperty('--gold-light',lighten(h,0.14));
+      el.style.setProperty('--gold-dim',darken(h,0.25));
+      el.style.setProperty('--gold-muted',darken(h,0.12));
+    }
+    var params=new URLSearchParams(window.location.search);
+    var accent=params.get('accent')||'';
+    var glyph=params.get('glyph')||'';
+    if(accent&&isHex(accent)){
+      sessionStorage.setItem('pl_accent',accent);
+      applyAccent(accent);
+    } else {
+      var sa=sessionStorage.getItem('pl_accent');
+      if(sa&&isHex(sa)){applyAccent(sa);}
+    }
+    if(glyph){sessionStorage.setItem('pl_glyph',glyph);}
+    window.PL_GLYPH=glyph||sessionStorage.getItem('pl_glyph')||'';
+    function propagateLinks(){
+      var a=sessionStorage.getItem('pl_accent');
+      var g=sessionStorage.getItem('pl_glyph');
+      if(!a&&!g)return;
+      var links=document.querySelectorAll('a[href]');
+      links.forEach(function(el){
+        var href=el.getAttribute('href');
+        if(!href||href.startsWith('http')||href.startsWith('//')||href.startsWith('#'))return;
+        if(!href.endsWith('.html'))return;
+        if(el.dataset.plThemed)return;
+        el.dataset.plThemed='1';
+        var url=new URL(href,window.location.href);
+        if(a)url.searchParams.set('accent',a);
+        if(g)url.searchParams.set('glyph',g);
+        el.setAttribute('href',url.pathname.split('/').pop()+'?'+url.searchParams.toString());
+      });
+    }
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',propagateLinks);}else{propagateLinks();}
+  })();
+  </script><script src="pl-game-data.js"></script>
+<script src="pl-points.js" defer></script></head>
+<body>
+
+<div id="game-instructions" style="position:fixed;inset:0;z-index:1000;background:#F8F2E4;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center;">
+  <p style="font-family:'PLHand',cursive;font-size:9px;letter-spacing:0.5em;text-transform:uppercase;color:#7A5C14;margin-bottom:16px;">How to Play</p>
+  <h2 style="font-family:'PLHand',cursive;font-size:clamp(28px,6vw,52px);color:#0A0A0A;font-weight:400;margin-bottom:20px;">The Seeds</h2>
+  <p style="font-family:'PLHand',cursive;font-size:clamp(14px,2vw,18px);color:#3A3020;max-width:480px;line-height:1.7;margin-bottom:32px;">A founder phrase appears as a title. The key words are scrambled below. Reconstruct the phrase by clicking words in order. Thirty seconds per round. Five rounds. Speed adds points — but getting it right matters more.</p>
+  <button id="begin-btn" style="font-family:'PLHand',cursive;font-size:12px;letter-spacing:0.4em;text-transform:uppercase;padding:16px 40px;background:transparent;border:1px solid #7A5C14;color:#B8861C;cursor:pointer;">Begin</button>
+</div>
+
+<header>
+  <a class="back" href="index.html">← Games</a>
+  <span class="title">The Seeds</span>
+  <div class="hdr-right">
+    <div class="stat">
+      <span class="stat-label">Round</span>
+      <span class="stat-value" id="roundDisp">—</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Score</span>
+      <span class="stat-value" id="scoreDisp">0</span>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+  <div class="idle-screen" id="idleScreen">
+    <p class="idle-headline">Reconstruct the Frequency</p>
+    <p class="idle-desc">Founder language from the archive. The words are scattered. Click them into the correct order. Thirty seconds per phrase. Speed is rewarded. Hesitation is not penalized — silence is.</p>
+    <button class="start-btn" id="startBtn">Begin</button>
+  </div>
+
+  <div class="game-area" id="gameArea">
+    <div class="progress-bar" id="progressBar"></div>
+    <span class="seed-label">Reconstruct the founder's phrase</span>
+    <div class="seed-title" id="seedTitle">—</div>
+    <div class="timer-bar-wrap">
+      <div class="timer-bar" id="timerBar"></div>
+    </div>
+    <div class="word-bank-wrap">
+      <div id="p5-seeds-host"></div>
+      <div class="word-bank" id="wordBank"></div>
+    </div>
+    <span class="tray-label">Your answer</span>
+    <div class="tray" id="tray">
+      <span class="tray-placeholder" id="trayPlaceholder">Click words above to build the phrase</span>
+    </div>
+    <div class="feedback" id="feedback"></div>
+    <button class="action-btn" id="actionBtn" style="display:none">Next</button>
+  </div>
+</div>
+
+<div class="result-overlay" id="resultOverlay">
+  <div class="result-label">Frequency Score</div>
+  <div class="result-score" id="resultScore">—</div>
+  <div class="result-verdict" id="resultVerdict"></div>
+  <div class="result-rounds" id="resultRounds"></div>
+  <div class="watch-this">Watch this.</div>
+  <button class="action-btn" id="resultBtn" style="margin-top:16px">Play Again</button>
+</div>
+
+<script>
+  /* ── Fallback corpus ─────────────────────────────────────────── */
+  const FALLBACK_CORPUS = [
+    { id:1, lens:'voice', principle:'The brand does not shout. It states.', quote:"I don't need to convince anyone. The work is the argument." },
+    { id:2, lens:'voice', principle:'Confidence is not loudness.', quote:"I stopped explaining it. If you get it, you get it. If not, that's also right." },
+    { id:3, lens:'voice', principle:'The sentence ends. It does not trail.', quote:"Every caption I write has to stand alone. No question at the end." },
+    { id:4, lens:'voice', principle:"Watch this — the brand's only promise.", quote:"I don't say coming soon. I say watch this. And then I deliver." },
+    { id:5, lens:'voice', principle:'The curve speaks before the brand does.', quote:"People recognize it before they know what it is. The mark carries the weight." },
+    { id:6, lens:'doctrine', principle:'The brand is a mindset before it is a product.', quote:"psyched lux is a luxury brand but more than that it's a mindset — the curve, the practice, the persistence." },
+    { id:7, lens:'doctrine', principle:'The curve is the daily act.', quote:"Every day I draw the curve. Not because it becomes something. Because I do it." },
+    { id:8, lens:'doctrine', principle:'Prepared for luxury is not aspiration. It is posture.', quote:"You walk in prepared. That's the first truth. Not hoping — prepared." },
+    { id:9, lens:'doctrine', principle:'The practice is the product.', quote:"When someone buys a piece they're not buying cloth. They're buying proof that showing up works." },
+    { id:10, lens:'doctrine', principle:'Luxury is not price. Luxury is precision of intention.', quote:"Luxury means you thought about every detail. Not that it costs more. That it costs exactly right." },
+  ];
+
+  const STOP_WORDS = new Set(['the','a','an','is','are','was','were','be','been','it','in','on','of','to','for','with','and','or','but','not','i','you','we','that','this','its','s','t']);
+
+  function tokenize(quote) {
+    return quote.replace(/[^a-zA-Z\s'-]/g, '')
+      .toLowerCase().split(/\s+/)
+      .filter(w => w.length > 2 && !STOP_WORDS.has(w.replace(/['-]/g, '')));
+  }
+
+  async function fetchCorpus(q, lens, limit = 3) {
+    try {
+      const params = new URLSearchParams({ q, limit: String(limit) });
+      if (lens) params.set('lens', lens);
+      const res = await fetch(`https://pl-cron.psychedluxuries.com/api/search?${params}`, {
+        signal: AbortSignal.timeout(5000)
+      });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const data = await res.json();
+      if (!data.ok || !data.results?.length) throw new Error('empty');
+      return data.results;
+    } catch {
+      return FALLBACK_CORPUS.filter(f => !lens || f.lens === lens)
+        .sort(() => Math.random() - 0.5).slice(0, limit);
+    }
+  }
+
+  /* Build seed rounds from corpus fragments */
+  async function buildRoundsFromCorpus() {
+    const fragments = await fetchCorpus('voice language sentence', 'voice', 3);
+    const rounds = [];
+    for (const frag of fragments.slice(0, ROUND_COUNT)) {
+      const tokens = tokenize(frag.quote);
+      // Deduplicate, take top 10 by length
+      const unique = [...new Set(tokens)].sort((a, b) => b.length - a.length).slice(0, 10);
+      if (unique.length < 3) continue;
+      rounds.push({
+        title: frag.principle.slice(0, 80),
+        words: unique,
+      });
+    }
+    // Pad with fallback if needed
+    while (rounds.length < ROUND_COUNT) {
+      const fb = FALLBACK_CORPUS.filter(f => f.lens === 'voice')[rounds.length % 5];
+      const tokens = tokenize(fb.quote);
+      const unique = [...new Set(tokens)].sort((a, b) => b.length - a.length).slice(0, 10);
+      rounds.push({ title: fb.principle.slice(0, 80), words: unique });
+    }
+    return rounds;
+  }
+
+  /* ── P5 rising particles ─────────────────────────────────────── */
+  let seedParticles = [];
+  function emitSeedParticles() {
+    const bank = document.getElementById('wordBank');
+    const rect = bank.getBoundingClientRect();
+    const hostRect = document.getElementById('p5-seeds-host').getBoundingClientRect();
+    const cx = rect.left + rect.width / 2 - hostRect.left;
+    const cy = rect.top + rect.height / 2 - hostRect.top;
+    for (let i = 0; i < 10; i++) {
+      seedParticles.push({
+        x: cx + (Math.random() - 0.5) * rect.width * 0.6,
+        y: cy + (Math.random() - 0.5) * rect.height * 0.3,
+        vy: -(0.5 + Math.random() * 1.5),
+        vx: (Math.random() - 0.5) * 0.4,
+        life: 60 + Math.random() * 40,
+        maxLife: 100,
+        size: 1.5 + Math.random() * 2,
+      });
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const sketch = p => {
+      p.setup = () => {
+        const host = document.getElementById('p5-seeds-host');
+        if (!host) return;
+        p.createCanvas(Math.max(host.clientWidth, 200), Math.max(host.clientHeight, 80)).parent('p5-seeds-host');
+        p.noStroke();
+      };
+
+      p.draw = () => {
+        p.clear();
+        seedParticles = seedParticles.filter(pt => pt.life > 0);
+        seedParticles.forEach(pt => {
+          const a = pt.life / pt.maxLife;
+          p.fill(184, 134, 28, a * 180);
+          p.circle(pt.x, pt.y, pt.size * 2);
+          pt.x += pt.vx;
+          pt.y += pt.vy;
+          pt.life--;
+        });
+      };
+
+      p.windowResized = () => {
+        const host = document.getElementById('p5-seeds-host');
+        if (host) p.resizeCanvas(host.clientWidth || 200, host.clientHeight || 80);
+      };
+    };
+
+    new p5(sketch);
+  });
+
+  /* ── Game logic ──────────────────────────────────────────────── */
+  const ROUND_COUNT = 5;
+  const ROUND_TIME = 30;
+
+  let rounds = [];
+  let currentRound = 0;
+  let roundScores = [];
+  let totalScore = 0;
+  let timerInterval = null;
+  let timeLeft = ROUND_TIME;
+  let answer = [];
+  let currentSeed = null;
+  let bankWords = [];
+  let roundOver = false;
+  let gameLoading = false;
+
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  async function startGame() {
+    if (gameLoading) return;
+    gameLoading = true;
+    document.getElementById('startBtn').textContent = 'Loading...';
+    document.getElementById('startBtn').disabled = true;
+
+    rounds = await buildRoundsFromCorpus();
+    currentRound = 0;
+    roundScores = [];
+    totalScore = 0;
+    gameLoading = false;
+
+    document.getElementById('scoreDisp').textContent = '0';
+    document.getElementById('idleScreen').style.display = 'none';
+    document.getElementById('gameArea').style.display = 'flex';
+    buildProgress();
+    startRound();
+  }
+
+  function buildProgress() {
+    const bar = document.getElementById('progressBar');
+    bar.innerHTML = '';
+    for (let i = 0; i < ROUND_COUNT; i++) {
+      const pip = document.createElement('div');
+      pip.className = 'progress-pip';
+      pip.id = `pip-${i}`;
+      bar.appendChild(pip);
+    }
+    updateProgress();
+  }
+
+  function updateProgress() {
+    for (let i = 0; i < ROUND_COUNT; i++) {
+      const pip = document.getElementById(`pip-${i}`);
+      if (!pip) return;
+      if (i < currentRound) pip.className = 'progress-pip done';
+      else if (i === currentRound) pip.className = 'progress-pip active';
+      else pip.className = 'progress-pip';
+    }
+    document.getElementById('roundDisp').textContent = `${currentRound + 1}/${ROUND_COUNT}`;
+  }
+
+  function startRound() {
+    roundOver = false;
+    answer = [];
+    currentSeed = rounds[currentRound];
+    bankWords = shuffle([...currentSeed.words]);
+    timeLeft = ROUND_TIME;
+
+    document.getElementById('seedTitle').textContent = currentSeed.title;
+    document.getElementById('feedback').textContent = '';
+    document.getElementById('actionBtn').style.display = 'none';
+    document.getElementById('trayPlaceholder').style.display = '';
+    document.getElementById('tray').className = 'tray';
+
+    renderWordBank();
+    renderTray();
+    updateProgress();
+
+    const bar = document.getElementById('timerBar');
+    bar.style.transition = 'none';
+    bar.style.width = '100%';
+    bar.className = 'timer-bar';
+
+    clearInterval(timerInterval);
+    timerInterval = setInterval(tickTimer, 200);
+  }
+
+  function tickTimer() {
+    timeLeft = Math.max(0, timeLeft - 0.2);
+    const pct = (timeLeft / ROUND_TIME) * 100;
+    const bar = document.getElementById('timerBar');
+    bar.style.transition = 'width 0.2s linear';
+    bar.style.width = `${pct}%`;
+    if (timeLeft < 8) bar.className = 'timer-bar urgent';
+
+    if (timeLeft <= 0 && !roundOver) {
+      clearInterval(timerInterval);
+      endRound(false);
+    }
+  }
+
+  function renderWordBank() {
+    const bank = document.getElementById('wordBank');
+    bank.innerHTML = '';
+    bankWords.forEach((word, idx) => {
+      const chip = document.createElement('button');
+      chip.className = 'word-chip';
+      chip.textContent = word;
+      chip.dataset.bankIdx = idx;
+      chip.addEventListener('click', () => addWord(idx));
+      bank.appendChild(chip);
+    });
+    // Resize p5 host to match word bank area
+    const host = document.getElementById('p5-seeds-host');
+    const wrap = document.querySelector('.word-bank-wrap');
+    if (host && wrap) {
+      setTimeout(() => {
+        host.style.width = wrap.offsetWidth + 'px';
+        host.style.height = wrap.offsetHeight + 'px';
+      }, 50);
+    }
+  }
+
+  function renderTray() {
+    const tray = document.getElementById('tray');
+    const placeholder = document.getElementById('trayPlaceholder');
+    tray.querySelectorAll('.answer-chip').forEach(e => e.remove());
+    placeholder.style.display = answer.length === 0 ? '' : 'none';
+
+    answer.forEach((item, pos) => {
+      const chip = document.createElement('div');
+      chip.className = 'answer-chip';
+      chip.textContent = item.word;
+      chip.addEventListener('click', () => removeWord(pos));
+      tray.appendChild(chip);
+    });
+
+    if (!roundOver && answer.length === currentSeed.words.length) {
+      checkAnswer();
+    }
+  }
+
+  function addWord(bankIdx) {
+    if (roundOver) return;
+    const btn = document.querySelector(`[data-bank-idx="${bankIdx}"]`);
+    if (btn.disabled) return;
+    btn.disabled = true;
+    answer.push({ word: bankWords[bankIdx], bankIdx });
+    renderTray();
+  }
+
+  function removeWord(pos) {
+    if (roundOver) return;
+    const item = answer.splice(pos, 1)[0];
+    const btn = document.querySelector(`[data-bank-idx="${item.bankIdx}"]`);
+    if (btn) btn.disabled = false;
+    renderTray();
+  }
+
+  function checkAnswer() {
+    // For corpus words, any arrangement that uses all words is accepted — score by time remaining
+    clearInterval(timerInterval);
+    endRound(true);
+  }
+
+  function endRound(correct) {
+    roundOver = true;
+    const score = correct ? Math.round(10 + timeLeft * 3) : 0;
+    roundScores.push(score);
+    totalScore += score;
+    document.getElementById('scoreDisp').textContent = totalScore;
+
+    const tray = document.getElementById('tray');
+    const fb = document.getElementById('feedback');
+
+    if (correct) {
+      tray.className = 'tray flash-correct';
+      fb.textContent = 'Planted.';
+      fb.style.color = 'var(--gold)';
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        emitSeedParticles();
+      }
+    } else {
+      tray.className = 'tray flash-wrong';
+      fb.style.color = '#B44';
+      fb.textContent = 'Time.';
+    }
+
+    document.getElementById('actionBtn').style.display = '';
+    document.getElementById('actionBtn').textContent = currentRound < ROUND_COUNT - 1 ? 'Next Seed →' : 'Final Score';
+  }
+
+  document.getElementById('actionBtn').addEventListener('click', () => {
+    if (currentRound < ROUND_COUNT - 1) {
+      currentRound++;
+      startRound();
+    } else {
+      showResult();
+    }
+  });
+
+  function showResult() {
+    document.getElementById('resultScore').textContent = totalScore;
+
+    const maxScore = ROUND_COUNT * (10 + ROUND_TIME * 3);
+    const pct = totalScore / maxScore;
+
+    let verdict = '';
+    if (pct >= 0.85) verdict = 'The frequency is yours. You carry the doctrine.';
+    else if (pct >= 0.65) verdict = 'Strong alignment. The seeds are taking root.';
+    else if (pct >= 0.4) verdict = 'The phrases are forming in you. Return.';
+    else verdict = 'The seeds need time. Come back to the field.';
+
+    document.getElementById('resultVerdict').textContent = verdict;
+
+    const rr = document.getElementById('resultRounds');
+    rr.innerHTML = roundScores.map((s, i) => `
+      <div class="result-round">
+        <div class="result-round-val ${s === 0 ? 'zero' : ''}">${s}</div>
+        <div class="result-round-label">Round ${i + 1}</div>
+      </div>
+    `).join('');
+
+    document.getElementById('resultOverlay').classList.add('visible');
+  }
+
+  document.getElementById('resultBtn').addEventListener('click', () => {
+    clearInterval(timerInterval);
+    document.getElementById('resultOverlay').classList.remove('visible');
+    document.getElementById('gameArea').style.display = 'none';
+    document.getElementById('idleScreen').style.display = 'flex';
+    document.getElementById('startBtn').textContent = 'Begin';
+    document.getElementById('startBtn').disabled = false;
+  });
+
+  document.getElementById('startBtn').addEventListener('click', startGame);
+
+  (function() {
+    const panel = document.getElementById('game-instructions');
+    if (!panel) return;
+    if (sessionStorage.getItem('pl_instructions_seen_' + location.pathname)) { panel.style.display = 'none'; return; }
+    document.getElementById('begin-btn').addEventListener('click', function() {
+      panel.style.display = 'none';
+      sessionStorage.setItem('pl_instructions_seen_' + location.pathname, '1');
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { panel.style.display = 'none'; sessionStorage.setItem('pl_instructions_seen_' + location.pathname, '1'); }
+    });
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,392 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Practice — PL Beta Games</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @font-face {
+      font-family: 'PLHand';
+      src: url('fonts/MaurriceMccannPsychedHandwrit-Regular.otf') format('opentype'),
+           url('fonts/MaurriceMccannPsychedHandwrit-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: #F8F2E4;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    #canvas-host {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+    }
+    #canvas-host canvas { display: block; }
+
+    .nav-bar {
+      position: fixed;
+      top: 24px; left: 24px;
+      z-index: 10;
+    }
+    .nav-link {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      color: #7A5C14;
+      text-decoration: none;
+      text-transform: uppercase;
+    }
+    .nav-link:hover { color: #B8861C; }
+
+    #plhand-end {
+      position: fixed;
+      bottom: 72px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      font-family: 'PLHand', cursive;
+      font-size: clamp(16px, 3vw, 24px);
+      color: #B8861C;
+      opacity: 0;
+      transition: opacity 0.6s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+  </style>
+  <!-- PL theme injection: reads accent/glyph from URL params or sessionStorage -->
+  <script id="pl-theme">
+  (function(){
+    function hexToRgb(h){h=h.replace(/^#/,'');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function clamp(v){return Math.max(0,Math.min(255,Math.round(v)));}
+    function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(x){return clamp(x).toString(16).padStart(2,'0')}).join('');}
+    function lighten(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]+(255-c[0])*pct,c[1]+(255-c[1])*pct,c[2]+(255-c[2])*pct);}
+    function darken(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]*(1-pct),c[1]*(1-pct),c[2]*(1-pct));}
+    function isHex(s){return /^#?[0-9a-fA-F]{6}$/.test(s);}
+    function applyAccent(accent){
+      var h=accent.startsWith('#')?accent:'#'+accent;
+      var el=document.documentElement;
+      el.style.setProperty('--gold',h);
+      el.style.setProperty('--gold-bright',lighten(h,0.18));
+      el.style.setProperty('--gold-light',lighten(h,0.14));
+      el.style.setProperty('--gold-dim',darken(h,0.25));
+      el.style.setProperty('--gold-muted',darken(h,0.12));
+    }
+    var params=new URLSearchParams(window.location.search);
+    var accent=params.get('accent')||'';
+    var glyph=params.get('glyph')||'';
+    if(accent&&isHex(accent)){
+      sessionStorage.setItem('pl_accent',accent);
+      applyAccent(accent);
+    } else {
+      var sa=sessionStorage.getItem('pl_accent');
+      if(sa&&isHex(sa)){applyAccent(sa);}
+    }
+    if(glyph){sessionStorage.setItem('pl_glyph',glyph);}
+    window.PL_GLYPH=glyph||sessionStorage.getItem('pl_glyph')||'';
+    function propagateLinks(){
+      var a=sessionStorage.getItem('pl_accent');
+      var g=sessionStorage.getItem('pl_glyph');
+      if(!a&&!g)return;
+      var links=document.querySelectorAll('a[href]');
+      links.forEach(function(el){
+        var href=el.getAttribute('href');
+        if(!href||href.startsWith('http')||href.startsWith('//')||href.startsWith('#'))return;
+        if(!href.endsWith('.html'))return;
+        if(el.dataset.plThemed)return;
+        el.dataset.plThemed='1';
+        var url=new URL(href,window.location.href);
+        if(a)url.searchParams.set('accent',a);
+        if(g)url.searchParams.set('glyph',g);
+        el.setAttribute('href',url.pathname.split('/').pop()+'?'+url.searchParams.toString());
+      });
+    }
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',propagateLinks);}else{propagateLinks();}
+  })();
+  </script><script src="pl-game-data.js"></script>
+<script src="pl-points.js" defer></script></head>
+<body>
+<div id="game-instructions" style="position:fixed;inset:0;background:#F8F2E4;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;font-family:'PLHand',cursive;">
+  <div style="max-width:500px;text-align:center;">
+    <p style="font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:#B8861C;margin-bottom:16px;">How to Play</p>
+    <h2 style="font-size:clamp(26px,4vw,40px);color:#0A0A0A;margin-bottom:20px;line-height:1.2;font-weight:400;">The Practice</h2>
+    <p style="font-size:clamp(16px,2.5vw,20px);color:#3A3020;line-height:1.7;margin-bottom:36px;">Daily. Without exception. Mark today. Watch what happens when you do not stop. The practice is the proof.</p>
+    <button id="begin-btn" style="font-family:'PLHand',cursive;font-size:20px;background:#B8861C;color:#F8F2E4;border:none;padding:14px 40px;cursor:pointer;letter-spacing:0.1em;">Begin</button>
+  </div>
+</div>
+<script>
+(function(){
+  var panel=document.getElementById('game-instructions');
+  if(!panel)return;
+  if(sessionStorage.getItem('pl_seen_'+location.pathname)){panel.style.display='none';return;}
+  document.getElementById('begin-btn').addEventListener('click',function(){
+    panel.style.display='none';
+    sessionStorage.setItem('pl_seen_'+location.pathname,'1');
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){panel.style.display='none';sessionStorage.setItem('pl_seen_'+location.pathname,'1');}
+  });
+})();
+</script>
+
+  <div id="canvas-host"></div>
+
+  <nav class="nav-bar">
+    <a class="nav-link" href="index.html">← Games</a>
+  </nav>
+
+  <div id="plhand-end">Despite the conditions.</div>
+
+<script>
+  const elHand = document.getElementById('plhand-end');
+
+  const OBSTACLES = ['INTERFERENCE','DOUBT','DISTRACTION','FEAR','NOISE','RESISTANCE','DELAY'];
+
+  const sketch = p => {
+    const W = () => p.windowWidth;
+    const H = () => p.windowHeight;
+
+    const GROUND_Y  = () => H() * 0.75;
+    const GOLD      = [201, 168, 76];
+    const BONE      = [240, 234, 214];
+    const ASH       = [85,  85,  85];
+    const VOID      = [8,   8,   8];
+    const RED       = [160, 60,  60];
+
+    let figure, obstacles, particles;
+    let days, gameOver, started, bestDays;
+    let speed, spawnTimer, spawnRate;
+    let handShown;
+
+    // figure glyph (simple stick figure made of curves)
+    function drawFigure(x, y, running) {
+      const t = p.frameCount * 0.2;
+      p.stroke(...GOLD, 220);
+      p.strokeWeight(2);
+      p.noFill();
+
+      // head (circle)
+      p.ellipse(x, y - 32, 14, 14);
+
+      // body
+      p.line(x, y - 25, x, y - 6);
+
+      // legs (animated)
+      if (running) {
+        p.line(x, y - 6, x - 8 + Math.sin(t) * 8,     y + 10);
+        p.line(x, y - 6, x + 8 - Math.sin(t) * 8,     y + 10);
+        p.line(x, y - 18, x - 10 + Math.sin(t+1) * 6, y - 8);
+        p.line(x, y - 18, x + 10 - Math.sin(t+1) * 6, y - 8);
+      } else {
+        p.line(x, y - 6, x - 8, y + 10);
+        p.line(x, y - 6, x + 8, y + 10);
+        p.line(x, y - 18, x - 10, y - 8);
+        p.line(x, y - 18, x + 10, y - 8);
+      }
+    }
+
+    function reset() {
+      figure    = { x: W() * 0.2, y: GROUND_Y(), vy: 0, onGround: true };
+      obstacles = [];
+      particles = [];
+      days      = 0;
+      speed     = 3;
+      spawnTimer = 0;
+      spawnRate  = 90;
+      gameOver  = false;
+      handShown = false;
+    }
+
+    p.setup = () => {
+      const cnv = p.createCanvas(W(), H());
+      cnv.parent('canvas-host');
+      bestDays = parseInt(localStorage.getItem('practice_best') || '0');
+      reset();
+    };
+
+    p.draw = () => {
+      p.background(...VOID);
+
+      if (!started) { drawStartScreen(); return; }
+      if (gameOver)  { drawGameOver();   return; }
+
+      // update figure
+      if (!figure.onGround) {
+        figure.vy += 0.6;
+        figure.y  += figure.vy;
+        if (figure.y >= GROUND_Y()) {
+          figure.y = GROUND_Y();
+          figure.vy = 0;
+          figure.onGround = true;
+        }
+      }
+
+      // update speed
+      speed = 3 + days * 0.008;
+
+      // spawn obstacles
+      spawnTimer++;
+      if (spawnTimer >= spawnRate) {
+        spawnTimer = 0;
+        spawnRate  = Math.max(45, 90 - days * 0.3);
+        const h    = 20 + Math.random() * 20;
+        obstacles.push({
+          x:    W() + 40,
+          y:    GROUND_Y() - h / 2,
+          w:    8,
+          h,
+          label: OBSTACLES[Math.floor(Math.random() * OBSTACLES.length)],
+        });
+      }
+
+      // draw ground line
+      p.stroke(...GOLD, 30);
+      p.strokeWeight(1);
+      p.line(0, GROUND_Y() + 12, W(), GROUND_Y() + 12);
+
+      // update & draw obstacles
+      let hit = false;
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        const ob = obstacles[i];
+        ob.x -= speed;
+        if (ob.x < -60) { obstacles.splice(i, 1); continue; }
+
+        // collision
+        const fx = figure.x;
+        const fy = figure.y;
+        if (Math.abs(fx - ob.x) < ob.w / 2 + 8 &&
+            fy - 36 < ob.y + ob.h / 2 &&
+            fy + 12 > ob.y - ob.h / 2) {
+          hit = true;
+        }
+
+        // draw obstacle
+        p.fill(...RED, 180);
+        p.noStroke();
+        p.rect(ob.x - ob.w / 2, ob.y - ob.h / 2, ob.w, ob.h, 2);
+
+        // label above
+        p.fill(...RED, 120);
+        p.textSize(7);
+        p.textAlign(p.CENTER, p.BOTTOM);
+        p.text(ob.label, ob.x, ob.y - ob.h / 2 - 4);
+      }
+
+      if (hit) {
+        gameOver = true;
+        if (days > bestDays) {
+          bestDays = days;
+          localStorage.setItem('practice_best', bestDays);
+        }
+        if (!handShown) {
+          handShown = true;
+          elHand.style.opacity = '1';
+          setTimeout(() => { elHand.style.opacity = '0'; }, 3000);
+        }
+        return;
+      }
+
+      // draw particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const pt = particles[i];
+        pt.x += pt.vx; pt.y += pt.vy;
+        pt.alpha -= 6;
+        if (pt.alpha <= 0) { particles.splice(i, 1); continue; }
+        p.fill(...GOLD, pt.alpha);
+        p.noStroke();
+        p.ellipse(pt.x, pt.y, 3);
+      }
+
+      // draw figure
+      drawFigure(figure.x, figure.y, true);
+
+      // counter
+      days += 0.04;
+
+      // HUD
+      p.fill(...GOLD);
+      p.noStroke();
+      p.textAlign(p.LEFT, p.TOP);
+      p.textSize(9);
+      p.text(`Days of practice: ${Math.floor(days)}`, 24, 24);
+      p.textAlign(p.RIGHT, p.TOP);
+      p.fill(...ASH);
+      p.text(`Best: ${bestDays}`, W() - 24, 24);
+
+      // trail particles
+      if (p.frameCount % 4 === 0) {
+        particles.push({
+          x: figure.x - 5 + Math.random() * 10,
+          y: figure.y,
+          vx: Math.random() * -2,
+          vy: Math.random() * -1,
+          alpha: 60,
+        });
+      }
+    };
+
+    function drawStartScreen() {
+      p.fill(...GOLD);
+      p.noStroke();
+      p.textAlign(p.CENTER, p.CENTER);
+      p.textSize(12);
+      p.text('THE PRACTICE', W() / 2, H() / 2 - 50);
+      p.fill(...BONE, 160);
+      p.textSize(10);
+      p.text('Jump over interference, doubt, distraction.', W() / 2, H() / 2 - 14);
+      p.text('The practice is the score.', W() / 2, H() / 2 + 10);
+      p.fill(...GOLD, 100);
+      p.textSize(9);
+      p.text('SPACE / TAP TO BEGIN', W() / 2, H() / 2 + 52);
+    }
+
+    function drawGameOver() {
+      p.fill(...GOLD);
+      p.noStroke();
+      p.textAlign(p.CENTER, p.CENTER);
+      p.textSize(12);
+      p.text('The Practice Interrupted', W() / 2, H() / 2 - 48);
+      p.fill(...BONE, 160);
+      p.textSize(10);
+      p.text(`Days of practice: ${Math.floor(days)}`, W() / 2, H() / 2 - 14);
+      p.fill(...ASH);
+      p.textSize(9);
+      p.text(`Best: ${bestDays} days`, W() / 2, H() / 2 + 12);
+      p.fill(...GOLD, 80);
+      p.text('SPACE / TAP TO TRY AGAIN', W() / 2, H() / 2 + 52);
+
+      drawFigure(W() / 2, GROUND_Y(), false);
+    }
+
+    function jump() {
+      if (!started) { started = true; return; }
+      if (gameOver)  { reset(); started = true; return; }
+      if (figure.onGround) {
+        figure.vy = -14;
+        figure.onGround = false;
+      }
+    }
+
+    p.keyPressed  = () => { if (p.key === ' ' || p.keyCode === 32 || p.keyCode === p.UP_ARROW) jump(); };
+    p.mousePressed = () => jump();
+    p.touchStarted = () => { jump(); return false; };
+
+    p.windowResized = () => {
+      p.resizeCanvas(W(), H());
+      if (figure) figure.y = GROUND_Y();
+    };
+  };
+
+  document.addEventListener('DOMContentLoaded', () => {
+    new p5(sketch);
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,1054 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Games — Psyched Luxuries</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js" defer></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @font-face {
+      font-family: 'PLHand';
+      src: url('fonts/MaurriceMccannPsychedHandwrit-Regular.otf') format('opentype'),
+           url('fonts/MaurriceMccannPsychedHandwrit-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --void:           #F8F2E4;
+      --void-soft:      #FFFFFF;
+      --void-mid:       #F2E9D4;
+      --border:         #D4AF6A;
+      --charcoal:       #C4A85A;
+      --gold:           #B8861C;
+      --gold-light:     #CA9A30;
+      --gold-dim:       #7A5810;
+      --gold-glow:      rgba(184, 134, 28, 0.18);
+      --bone:           #0A0A0A;
+      --ash:            #3A3020;
+      --ash-mid:        #7A6840;
+      --ash-dark:       #C4A85A;
+      --muted:          #EDE4CC;
+      --philosophy:     #6B3FA8;
+      --philosophy-bg:  #EDE6F8;
+      --philosophy-fg:  #3A1880;
+      --white:          #0A0A0A;
+      --font-display:   'Cormorant Garamond', Georgia, serif;
+      --font-body:      'Jost', 'Helvetica Neue', sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--void);
+      color: var(--bone);
+      font-family: var(--font-body);
+      font-weight: 300;
+      min-height: 100vh;
+      cursor: none;
+    }
+
+    /* ── Custom cursor ──────────────────────────────────────────── */
+    #cursor-dot {
+      position: fixed;
+      width: 8px;
+      height: 8px;
+      background: var(--gold);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9999;
+      left: 0; top: 0;
+      transform: translate(-50%, -50%);
+      transition: opacity 0.3s;
+    }
+
+    /* ── P5 host ────────────────────────────────────────────────── */
+    #p5-host {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+    #p5-host canvas { display: block; width: 100% !important; height: 100% !important; }
+
+    /* ── Grain overlay ──────────────────────────────────────────── */
+    #grain {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      opacity: 0.06;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    /* ── Page content ───────────────────────────────────────────── */
+    .page-content { position: relative; z-index: 2; }
+
+    /* ── Hero ───────────────────────────────────────────────────── */
+    .hero {
+      text-align: center;
+      padding: 120px 24px 80px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .hero-eyebrow {
+      font-family: 'PLHand', cursive;
+      font-size: 18px;
+      font-weight: 400;
+      letter-spacing: 0.06em;
+      text-transform: none;
+      color: var(--gold);
+      margin-bottom: 28px;
+      display: block;
+    }
+
+    .hero h1 {
+      font-family: var(--font-display);
+      font-size: clamp(40px, 9vw, 88px);
+      font-weight: 300;
+      color: var(--bone);
+      line-height: 1.1;
+      letter-spacing: 0.06em;
+      margin-bottom: 36px;
+    }
+
+    .hero h1 em {
+      font-family: 'PLHand', cursive;
+      font-style: normal;
+      color: var(--gold);
+    }
+
+    .hero-body {
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 300;
+      color: var(--ash);
+      line-height: 1.9;
+      max-width: 520px;
+      margin: 0 auto;
+      letter-spacing: 0.02em;
+    }
+
+    /* ── Ticker ─────────────────────────────────────────────────── */
+    .ticker-wrap {
+      overflow: hidden;
+      background: var(--gold);
+      padding: 10px 0;
+    }
+
+    .ticker-track {
+      display: flex;
+      white-space: nowrap;
+      animation: ticker 35s linear infinite;
+    }
+
+    .ticker-text {
+      font-family: 'PLHand', cursive;
+      font-size: 16px;
+      font-weight: 400;
+      letter-spacing: 0.06em;
+      text-transform: none;
+      color: #FAF2E0;
+      flex-shrink: 0;
+    }
+
+    @keyframes ticker {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+
+    /* ── Games main ─────────────────────────────────────────────── */
+    .games-main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px 120px;
+    }
+
+    /* ── Section ────────────────────────────────────────────────── */
+    .game-section { padding-top: 80px; }
+
+    .section-divider {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 48px;
+    }
+
+    .section-line {
+      width: 40px;
+      height: 1px;
+      background: var(--gold);
+      opacity: 0.6;
+      flex-shrink: 0;
+    }
+
+    .section-tag {
+      font-family: 'PLHand', cursive;
+      font-size: 16px;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      text-transform: none;
+      color: var(--gold);
+      white-space: nowrap;
+    }
+
+    /* ── Game grid ──────────────────────────────────────────────── */
+    .game-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+    }
+
+    @media (min-width: 768px)  { .game-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1200px) { .game-grid { grid-template-columns: repeat(3, 1fr); } }
+
+    /* ── Game card ──────────────────────────────────────────────── */
+    .game-card {
+      background: var(--void-soft);
+      padding: 40px 32px 32px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    /* Left border accent — slides in from top on hover */
+    .game-card::after {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--gold);
+      transform: scaleY(0);
+      transform-origin: top;
+    }
+
+    /* Hover + transitions enabled only after reveal */
+    .game-card.is-done {
+      transition: box-shadow 300ms cubic-bezier(0.16, 1, 0.3, 1),
+                  background 300ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .game-card.is-done::after {
+      transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .game-card.is-done:hover {
+      background: var(--void-mid);
+      box-shadow: inset 0 0 0 1px var(--gold), 0 8px 32px var(--gold-glow);
+      z-index: 1;
+    }
+
+    .game-card.is-done:hover::after { transform: scaleY(1); }
+
+    /* Locked card style */
+    .card-locked .card-title    { color: rgba(10, 10, 10, 0.3); }
+    .card-locked .card-doctrine { color: rgba(184, 134, 28, 0.4); }
+    .card-locked .card-desc     { color: rgba(58, 48, 32, 0.4); }
+    .card-locked::after         { background: rgba(184, 134, 28, 0.25); }
+
+    /* Card reveal animation */
+    @keyframes cardReveal {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .game-card.is-visible {
+      animation: cardReveal 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    /* ── Card head ──────────────────────────────────────────────── */
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      min-height: 22px;
+    }
+
+    .card-tier {
+      font-family: 'PLHand', cursive;
+      font-size: 14px;
+      font-weight: 400;
+      letter-spacing: 0.05em;
+      text-transform: none;
+    }
+
+    .tier-gold       { color: var(--gold); }
+    .tier-philosophy { color: var(--philosophy); }
+
+    .card-badges { display: flex; gap: 6px; align-items: center; }
+
+    .badge {
+      font-family: 'PLHand', cursive;
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: 0.03em;
+      text-transform: none;
+      padding: 3px 10px;
+      line-height: 1;
+    }
+
+    .badge-live {
+      color: var(--void);
+      background: var(--gold);
+    }
+
+    .badge-persistent {
+      color: var(--philosophy-fg);
+      background: var(--philosophy-bg);
+      border: 1px solid var(--philosophy);
+    }
+
+    /* ── Card title ─────────────────────────────────────────────── */
+    .card-title {
+      font-family: var(--font-display);
+      font-size: clamp(20px, 2.4vw, 27px);
+      font-weight: 300;
+      font-style: italic;
+      color: var(--bone);
+      letter-spacing: 0.04em;
+      line-height: 1.15;
+      margin-bottom: 14px;
+      transition: color 300ms;
+    }
+
+    .game-card.is-done:hover .card-title { color: var(--white); }
+
+    /* ── Card doctrine ──────────────────────────────────────────── */
+    .card-doctrine {
+      font-family: 'PLHand', cursive;
+      font-size: 17px;
+      font-weight: 400;
+      font-style: normal;
+      color: var(--gold);
+      letter-spacing: 0.01em;
+      line-height: 1.45;
+      margin-bottom: 14px;
+    }
+
+    /* ── Card description ───────────────────────────────────────── */
+    .card-desc {
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 300;
+      color: var(--ash);
+      line-height: 1.8;
+      flex: 1;
+      margin-bottom: 28px;
+    }
+
+    /* ── Lock note ──────────────────────────────────────────────── */
+    .lock-note {
+      font-family: var(--font-body);
+      font-size: 9px;
+      font-weight: 400;
+      letter-spacing: 0.12em;
+      color: rgba(107, 63, 168, 0.65);
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+
+    /* ── Card footer ────────────────────────────────────────────── */
+    .card-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    /* ── Complexity dots ────────────────────────────────────────── */
+    .card-dots { display: flex; gap: 5px; align-items: center; }
+
+    .dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .dot-gold       { background: var(--gold); }
+    .dot-philosophy { background: var(--philosophy); }
+
+    /* ── CTA ────────────────────────────────────────────────────── */
+    .card-cta {
+      font-family: 'PLHand', cursive;
+      font-size: 16px;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      text-transform: none;
+      padding: 8px 18px;
+    }
+
+    .cta-coming {
+      border: 1px solid rgba(184, 134, 28, 0.3);
+      color: rgba(184, 134, 28, 0.5);
+      cursor: default;
+    }
+
+    .cta-live {
+      background: var(--gold);
+      color: var(--void);
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      transition: background 300ms;
+    }
+    .cta-live:hover { background: var(--gold-light); }
+
+    /* ── Footer ─────────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 32px 40px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .footer-declaration {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(16px, 3vw, 22px);
+      color: var(--gold);
+      letter-spacing: 0.05em;
+    }
+
+    .footer-meta {
+      font-family: var(--font-body);
+      font-size: 9px;
+      letter-spacing: 0.3em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    /* ── Focus ──────────────────────────────────────────────────── */
+    :focus-visible {
+      outline: 2px solid var(--gold);
+      outline-offset: 2px;
+    }
+
+    /* ── Hero nav ───────────────────────────────────────────────── */
+    .hero-nav { margin-top: 36px; }
+
+    .hero-nav-link {
+      font-family: 'PLHand', cursive;
+      font-size: 15px;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      text-transform: none;
+      color: var(--ash-mid);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .hero-nav-link:hover { color: var(--gold); }
+
+    /* ── Reduced motion ─────────────────────────────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      html             { scroll-behavior: auto; }
+      #p5-host         { display: none; }
+      #cursor-dot      { display: none; }
+      body             { cursor: auto; }
+      .game-card       { opacity: 1 !important; transform: none !important; }
+      .ticker-track    { animation: none; }
+    }
+
+    /* ── Mobile ─────────────────────────────────────────────────── */
+    @media (max-width: 767px) {
+      body                { cursor: auto; }
+      #cursor-dot         { display: none; }
+      .hero               { padding: 80px 20px 60px; }
+      .games-main         { padding: 0 16px 80px; }
+      footer              { padding: 24px 20px; }
+      .game-card          { padding: 32px 24px 28px; }
+    }
+  </style>
+  <!-- PL theme injection: reads accent/glyph from URL params or sessionStorage -->
+  <script id="pl-theme">
+  (function(){
+    function hexToRgb(h){h=h.replace(/^#/,'');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function clamp(v){return Math.max(0,Math.min(255,Math.round(v)));}
+    function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(x){return clamp(x).toString(16).padStart(2,'0')}).join('');}
+    function lighten(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]+(255-c[0])*pct,c[1]+(255-c[1])*pct,c[2]+(255-c[2])*pct);}
+    function darken(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]*(1-pct),c[1]*(1-pct),c[2]*(1-pct));}
+    function isHex(s){return /^#?[0-9a-fA-F]{6}$/.test(s);}
+    function applyAccent(accent){
+      var h=accent.startsWith('#')?accent:'#'+accent;
+      var el=document.documentElement;
+      el.style.setProperty('--gold',h);
+      el.style.setProperty('--gold-bright',lighten(h,0.18));
+      el.style.setProperty('--gold-light',lighten(h,0.14));
+      el.style.setProperty('--gold-dim',darken(h,0.25));
+      el.style.setProperty('--gold-muted',darken(h,0.12));
+    }
+    var params=new URLSearchParams(window.location.search);
+    var accent=params.get('accent')||'';
+    var glyph=params.get('glyph')||'';
+    if(accent&&isHex(accent)){
+      sessionStorage.setItem('pl_accent',accent);
+      applyAccent(accent);
+    } else {
+      var sa=sessionStorage.getItem('pl_accent');
+      if(sa&&isHex(sa)){applyAccent(sa);}
+    }
+    if(glyph){sessionStorage.setItem('pl_glyph',glyph);}
+    window.PL_GLYPH=glyph||sessionStorage.getItem('pl_glyph')||'';
+    function propagateLinks(){
+      var a=sessionStorage.getItem('pl_accent');
+      var g=sessionStorage.getItem('pl_glyph');
+      if(!a&&!g)return;
+      var links=document.querySelectorAll('a[href]');
+      links.forEach(function(el){
+        var href=el.getAttribute('href');
+        if(!href||href.startsWith('http')||href.startsWith('//')||href.startsWith('#'))return;
+        if(!href.endsWith('.html'))return;
+        if(el.dataset.plThemed)return;
+        el.dataset.plThemed='1';
+        var url=new URL(href,window.location.href);
+        if(a)url.searchParams.set('accent',a);
+        if(g)url.searchParams.set('glyph',g);
+        el.setAttribute('href',url.pathname.split('/').pop()+'?'+url.searchParams.toString());
+      });
+    }
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',propagateLinks);}else{propagateLinks();}
+  })();
+  </script><script src="pl-game-data.js"></script>
+<script src="pl-points.js" defer></script></head>
+<body>
+
+  <div id="cursor-dot" aria-hidden="true"></div>
+  <div id="p5-host" aria-hidden="true"></div>
+  <div id="grain" aria-hidden="true"></div>
+
+  <div class="page-content">
+
+    <!-- ── HERO ──────────────────────────────────────────────────── -->
+    <header class="hero">
+      <span class="hero-eyebrow">Psyched Luxuries — The Games</span>
+      <h1>The doctrine,<br><em>made playable.</em></h1>
+      <p class="hero-body">Seventeen experiences. Each one teaches a Truth without naming it. Enter when prepared. There is no wrong path. Only different routes to the same architecture.</p>
+      <nav class="hero-nav" aria-label="Site navigation">
+        <a class="hero-nav-link" href="index.html">← Beta Games (Live Now)</a>
+      </nav>
+    </header>
+
+    <!-- ── TICKER ────────────────────────────────────────────────── -->
+    <div class="ticker-wrap" role="marquee" aria-label="Three Truths">
+      <div class="ticker-track">
+        <span class="ticker-text">PREPARED FOR LUXURY &nbsp;·&nbsp; YOU ARE IN CONTROL OF YOUR REALITY &nbsp;·&nbsp; WHAT PERSISTS IN THE MIND BECOMES YOUR REALITY &nbsp;·&nbsp; PREPARED FOR LUXURY &nbsp;·&nbsp; YOU ARE IN CONTROL OF YOUR REALITY &nbsp;·&nbsp; WHAT PERSISTS IN THE MIND BECOMES YOUR REALITY &nbsp;·&nbsp;&nbsp;&nbsp;&nbsp;</span>
+        <span class="ticker-text" aria-hidden="true">PREPARED FOR LUXURY &nbsp;·&nbsp; YOU ARE IN CONTROL OF YOUR REALITY &nbsp;·&nbsp; WHAT PERSISTS IN THE MIND BECOMES YOUR REALITY &nbsp;·&nbsp; PREPARED FOR LUXURY &nbsp;·&nbsp; YOU ARE IN CONTROL OF YOUR REALITY &nbsp;·&nbsp; WHAT PERSISTS IN THE MIND BECOMES YOUR REALITY &nbsp;·&nbsp;&nbsp;&nbsp;&nbsp;</span>
+      </div>
+    </div>
+
+    <main class="games-main">
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 01 — THE ARCHIVE
+      ════════════════════════════════════════════════════════════════ -->
+      <section class="game-section" id="the-archive" aria-label="The Archive">
+        <div class="section-divider" aria-hidden="true">
+          <div class="section-line"></div>
+          <span class="section-tag">Section 01 &nbsp;·&nbsp; The Archive</span>
+        </div>
+        <div class="game-grid">
+
+          <!-- G01 — Living Archive -->
+          <article class="game-card" tabindex="0">
+            <div class="card-head">
+              <span class="card-tier tier-gold">Pushing to the Max</span>
+            </div>
+            <h3 class="card-title">Living Archive</h3>
+            <p class="card-doctrine">The archive as explorable universe.</p>
+            <p class="card-desc">2,000 pieces as particles in 3D space. Navigate like flying through a galaxy. Click any piece — it expands, reveals its origin date and doctrine segment.</p>
+            <div class="card-foot">
+              <div class="card-dots" aria-label="Complexity: high">
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+              </div>
+              <a class="card-cta cta-live" href="living-archive-3d.html">Play</a>
+            </div>
+          </article>
+
+          <!-- G09 — The Origin Well -->
+          <article class="game-card" tabindex="0">
+            <div class="card-head">
+              <span class="card-tier tier-gold">3D</span>
+            </div>
+            <h3 class="card-title">The Origin Well</h3>
+            <p class="card-doctrine">The practice at its root.</p>
+            <p class="card-desc">Vertical 3D descent through layers of archive time. Most recent at top, April 2019 at bottom. Each layer is a year. Pieces from that year float past as you descend. At the bottom — the very first piece.</p>
+            <div class="card-foot">
+              <div class="card-dots" aria-label="Complexity: high">
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+              </div>
+              <a class="card-cta cta-live" href="origin-well.html">Play</a>
+            </div>
+          </article>
+
+          <!-- G14 — Archive Restoration -->
+          <article class="game-card" tabindex="0">
+            <div class="card-head">
+              <span class="card-tier tier-philosophy">Brand Native</span>
+              <div class="card-badges">
+                <span class="badge badge-persistent">Persistent</span>
+              </div>
+            </div>
+            <h3 class="card-title">Archive Restoration</h3>
+            <p class="card-doctrine">Time symmetry as mechanic.</p>
+            <p class="card-desc">A piece from the archive has been fragmented. Receive fragments across multiple sessions — one per session. Collect all fragments to restore the piece and receive its full provenance.</p>
+            <div class="card-foot">
+              <div class="card-dots" aria-label="Complexity: high, persistent">
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-philosophy"></span>
+              </div>
+              <a class="card-cta cta-live" href="archive-restoration.html">Play</a>
+            </div>
+          </article>
+
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 02 — THE DOCTRINE
+      ════════════════════════════════════════════════════════════════ -->
+      <section class="game-section" id="the-doctrine" aria-label="The Doctrine">
+        <div class="section-divider" aria-hidden="true">
+          <div class="section-line"></div>
+          <span class="section-tag">Section 02 &nbsp;·&nbsp; The Doctrine</span>
+        </div>
+        <div class="game-grid">
+
+          <!-- G03 — The Transmission Engine -->
+          <article class="game-card" tabindex="0">
+            <div class="card-head">
+              <span class="card-tier tier-gold">Pushing to the Max</span>
+            </div>
+            <h3 class="card-title">The Transmission Engine</h3>
+            <p class="card-doctrine">Philosophy as personal translator.</p>
+            <p class="card-desc">Write any thought. The engine processes it through all Three Truths sequentially — returning a transformation at each stage. Your thought rebuilt by the doctrine.</p>
+            <div class="card-foot">
+              <div class="card-dots" aria-label="Complexity: medium">
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+              </div>
+              <a class="card-cta cta-live" href="transmission-engine.html">Play</a>
+            </div>
+          </article>
+
+          <!-- G11 — The Identity Install -->
+          <article class="game-card" tabindex="0">
+            <div class="card-head">
+              <span class="card-tier tier-philosophy">Philosophy</span>
+            </div>
+            <h3 class="card-title">The Identity Install</h3>
+            <p class="card-doctrine">The mind as architecture.</p>
+            <p class="card-desc">Receive three forensic anchors — statements of fact about who you are. Navigate a space that reflects back whatever identity you've installed. Abundance opens the space. Scarcity contracts it.</p>
+            <div class="card-foot">
+              <div class="card-dots" aria-label="Complexity: medium">
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+              </div>
+              <a class="card-cta cta-live" href="identity-install.html">Play</a>
+            </div>
+          </article>
+
+          <!-- G10 — The Three Truths Room -->
+          <article class="game-card" tabindex="0">
+            <div class="card-head">
+              <span class="card-tier tier-gold">3D</span>
+            </div>
+            <h3 class="card-title">The Three Truths Room</h3>
+            <p class="card-doctrine">The Three Truths as architecture.</p>
+            <p class="card-desc">Three connected 3D chambers. First: preparation. Second: authorship — full agency over every object. Third: the mirror — what persisted from your choices fills the final space.</p>
+            <div class="card-foot">
+              <div class="card-dots" aria-label="Complexity: high">
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+              </div>
+              <a class="card-cta cta-live" href="three-laws-room.html">Play</a>
+            </div>
+          </article>
+
+          <!-- G06 — The Watch This Moment -->
+          <article class="game-card" tabindex="0">
+            <div class="card-head">
+              <span class="card-tier tier-philosophy">Brand Native</span>
+            </div>
+            <h3 class="card-title">The Watch This Moment</h3>
+            <p class="card-doctrine">The brand's thesis discovered by playing, not reading.</p>
+            <p class="card-desc">No instructions. No visible objective. Everything is obsidian. Certain movements leave gold traces. Enough traces form a Curve. A complete Curve reveals an archive piece.</p>
+            <div class="card-foot">
+              <div class="card-dots" aria-label="Complexity: medium">
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+              </div>
+              <a class="card-cta cta-live" href="watch-this-moment.html">Play</a>
+            </div>
+          </article>
+
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 03 — THE ORACLE
+      ════════════════════════════════════════════════════════════════ -->
+      <section class="game-section" id="the-oracle" aria-label="The Oracle">
+        <div class="section-divider" aria-hidden="true">
+          <div class="section-line"></div>
+          <span class="section-tag">Section 03 &nbsp;·&nbsp; The Oracle</span>
+        </div>
+        <div class="game-grid">
+
+          <!-- G02 — The Oracle Game -->
+          <article class="game-card" tabindex="0">
+            <div class="card-head">
+              <span class="card-tier tier-gold">Pushing to the Max</span>
+            </div>
+            <h3 class="card-title">The Oracle Game</h3>
+            <p class="card-doctrine">No wrong answers. Only different routes to the same architecture.</p>
+            <p class="card-desc">Ask a question. The Oracle responds with a Seed. Interpret it. Make a choice. Five paths deep — each ends at a different archive piece and a different Law.</p>
+            <div class="card-foot">
+              <div class="card-dots" aria-label="Complexity: high">
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+              </div>
+              <a class="card-cta cta-live" href="oracle-game.html">Play</a>
+            </div>
+          </article>
+
+          <!-- G07 — Psyched Luxuries Tarot -->
+          <article class="game-card" tabindex="0">
+            <div class="card-head">
+              <span class="card-tier tier-philosophy">Brand Native</span>
+            </div>
+            <h3 class="card-title">Psyched Luxuries Tarot</h3>
+            <p class="card-doctrine">Every reading ends with "Watch this."</p>
+            <p class="card-desc">22 cards. Each a Glyph or archive piece. Draw three. The reading comes from Codex doctrine — not mysticism. Always philosophically precise. No card is negative.</p>
+            <div class="card-foot">
+              <div class="card-dots" aria-label="Complexity: simple">
+                <span class="dot dot-gold"></span>
+              </div>
+              <a class="card-cta cta-live" href="tarot.html">Play</a>
+            </div>
+          </article>
+
+          <!-- G15 — The Apostle Layer (LOCKED) -->
+          <article class="game-card card-locked" tabindex="0">
+            <div class="card-head">
+              <span class="card-tier tier-philosophy">Brand Native</span>
+            </div>
+            <h3 class="card-title">The Apostle Layer</h3>
+            <p class="card-doctrine">The congregation teaches the brand back to itself.</p>
+            <p class="card-desc">For congregation members who have completed at least three other PL games. Your sessions generate doctrine insights fed back into the Oracle and Transmission Engine. The system becomes self-referential.</p>
+            <p class="lock-note" aria-label="Locked: requires completion of any 3 other games">Requires completion of any 3 other games</p>
+            <div class="card-foot">
+              <div class="card-dots" aria-label="Complexity: high">
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+              </div>
+              <a class="card-cta cta-live" href="apostle-layer.html">Play</a>
+            </div>
+          </article>
+
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 04 — THE CONGREGATION
+      ════════════════════════════════════════════════════════════════ -->
+      <section class="game-section" id="the-congregation" aria-label="The Congregation">
+        <div class="section-divider" aria-hidden="true">
+          <div class="section-line"></div>
+          <span class="section-tag">Section 04 &nbsp;·&nbsp; The Congregation</span>
+        </div>
+        <div class="game-grid">
+
+          <!-- G05 — The Congregation Map -->
+          <article class="game-card" tabindex="0">
+            <div class="card-head">
+              <span class="card-tier tier-philosophy">Brand Native</span>
+              <div class="card-badges">
+                <span class="badge badge-live">Live</span>
+              </div>
+            </div>
+            <h3 class="card-title">The Congregation Map</h3>
+            <p class="card-doctrine">The congregation becomes visible as a constellation that self-organizes by philosophy.</p>
+            <p class="card-desc">Every player who has played any PL game appears as a light in a dark field. Players near the same doctrine segment cluster together without knowing it.</p>
+            <div class="card-foot">
+              <div class="card-dots" aria-label="Complexity: high">
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+              </div>
+              <a class="card-cta cta-live" href="congregation-map.html">Play</a>
+            </div>
+          </article>
+
+          <!-- G13 — The Congregation Engine -->
+          <article class="game-card" tabindex="0">
+            <div class="card-head">
+              <span class="card-tier tier-gold">Pushing to the Max</span>
+              <div class="card-badges">
+                <span class="badge badge-live">Live</span>
+              </div>
+            </div>
+            <h3 class="card-title">The Congregation Engine</h3>
+            <p class="card-doctrine">Only doctrine as the communication layer.</p>
+            <p class="card-desc">Live multiplayer philosophy space. Players enter and are invisibly sorted by doctrine alignment. Leave Seed phrases for others. Find Seeds left by strangers. No chat. No usernames.</p>
+            <div class="card-foot">
+              <div class="card-dots" aria-label="Complexity: high">
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+              </div>
+              <a class="card-cta cta-live" href="congregation-engine.html">Play</a>
+            </div>
+          </article>
+
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 05 — THE PERSISTENCE
+      ════════════════════════════════════════════════════════════════ -->
+      <section class="game-section" id="the-persistence" aria-label="The Persistence">
+        <div class="section-divider" aria-hidden="true">
+          <div class="section-line"></div>
+          <span class="section-tag">Section 05 &nbsp;·&nbsp; The Persistence</span>
+        </div>
+        <div class="game-grid">
+
+          <!-- G12 — The Long Game -->
+          <article class="game-card" tabindex="0">
+            <div class="card-head">
+              <span class="card-tier tier-philosophy">Philosophy</span>
+              <div class="card-badges">
+                <span class="badge badge-persistent">Persistent</span>
+              </div>
+            </div>
+            <h3 class="card-title">The Long Game</h3>
+            <p class="card-doctrine">Cannot be rushed. Cannot be cheated. One year.</p>
+            <p class="card-desc">Plant a Seed on day one. Return daily to tend it — even briefly. At day 365 the Seed becomes an archive piece generated uniquely from your session data across the year.</p>
+            <div class="card-foot">
+              <div class="card-dots" aria-label="Complexity: high, persistent">
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-philosophy"></span>
+              </div>
+              <a class="card-cta cta-live" href="long-game.html">Play</a>
+            </div>
+          </article>
+
+          <!-- G17 — Truth 3 Live -->
+          <article class="game-card" tabindex="0">
+            <div class="card-head">
+              <span class="card-tier tier-philosophy">Philosophy</span>
+              <div class="card-badges">
+                <span class="badge badge-persistent">Persistent</span>
+              </div>
+            </div>
+            <h3 class="card-title">Truth 3 Live</h3>
+            <p class="card-doctrine">The longest-held intention in the ecosystem is always displayed publicly.</p>
+            <p class="card-desc">A 30-day game. Hold one intention — typed on day one. Return daily. If the intention changes before day 30, restart. Hold it for 30 days and it generates an archive piece that is yours alone — seeded by your intention's text.</p>
+            <div class="card-foot">
+              <div class="card-dots" aria-label="Complexity: high, persistent">
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-philosophy"></span>
+              </div>
+              <a class="card-cta cta-live" href="law-3-live.html">Play</a>
+            </div>
+          </article>
+
+          <!-- G16 — The 50 Seeds (LOCKED progressive) -->
+          <article class="game-card card-locked" tabindex="0">
+            <div class="card-head">
+              <span class="card-tier tier-philosophy">Brand Native</span>
+            </div>
+            <h3 class="card-title">The 50 Seeds</h3>
+            <p class="card-doctrine">The congregation as treasure hunters inside the doctrine.</p>
+            <p class="card-desc">Exactly 50 Seeds from the original collection are hidden across the entire PL game ecosystem. One per game. Some require prior game completion. Find all 50 and Seed 01/50 reveals itself.</p>
+            <p class="lock-note" aria-label="Locked: progressive, see individual game requirements">Progressive — see individual game requirements</p>
+            <div class="card-foot">
+              <div class="card-dots" aria-label="Complexity: high">
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+              </div>
+              <a class="card-cta cta-live" href="fifty-seeds.html">Play</a>
+            </div>
+          </article>
+
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           SECTION 06 — THE FIELD
+      ════════════════════════════════════════════════════════════════ -->
+      <section class="game-section" id="the-field" aria-label="The Field">
+        <div class="section-divider" aria-hidden="true">
+          <div class="section-line"></div>
+          <span class="section-tag">Section 06 &nbsp;·&nbsp; The Field</span>
+        </div>
+        <div class="game-grid">
+
+          <!-- G08 — The Curve Field -->
+          <article class="game-card" tabindex="0">
+            <div class="card-head">
+              <span class="card-tier tier-gold">3D</span>
+            </div>
+            <h3 class="card-title">The Curve Field</h3>
+            <p class="card-doctrine">The Curve as living architecture.</p>
+            <p class="card-desc">Infinite 3D obsidian plane. Curve formations rise as you move through the space. Each procedurally generated, Curve-law compliant — no intersections. Formations respond to your proximity.</p>
+            <div class="card-foot">
+              <div class="card-dots" aria-label="Complexity: high">
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+              </div>
+              <a class="card-cta cta-live" href="curve-field.html">Play</a>
+            </div>
+          </article>
+
+          <!-- G04 — Sanctuary Preview -->
+          <article class="game-card" tabindex="0">
+            <div class="card-head">
+              <span class="card-tier tier-gold">3D</span>
+            </div>
+            <h3 class="card-title">Sanctuary Preview</h3>
+            <p class="card-doctrine">The browser version is the invitation.</p>
+            <p class="card-desc">Browser-based 3D pre-experience of the Horizon Worlds Sanctuary. Walk the space. Find Seeds placed in the environment. The full Sanctuary opens after you've been prepared.</p>
+            <div class="card-foot">
+              <div class="card-dots" aria-label="Complexity: high">
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+                <span class="dot dot-gold"></span>
+              </div>
+              <a class="card-cta cta-live" href="sanctuary-preview.html">Play</a>
+            </div>
+          </article>
+
+        </div>
+      </section>
+
+    </main>
+
+    <footer>
+      <span class="footer-declaration">Watch this.</span>
+      <span class="footer-meta">© 2026 Psyched Luxuries — All Rights Reserved</span>
+    </footer>
+
+  </div><!-- /.page-content -->
+
+<script>
+  /* ── Custom cursor (desktop only) ───────────────────────────── */
+  const cursorDot = document.getElementById('cursor-dot');
+  if ('ontouchstart' in window) {
+    cursorDot.style.display = 'none';
+    document.body.style.cursor = 'auto';
+  } else {
+    let mx = window.innerWidth / 2, my = window.innerHeight / 2;
+    let cx = mx, cy = my;
+    document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+    document.addEventListener('mouseleave', () => { cursorDot.style.opacity = '0'; });
+    document.addEventListener('mouseenter', () => { cursorDot.style.opacity = '1'; });
+    (function animCursor() {
+      cx += (mx - cx) * 0.14;
+      cy += (my - cy) * 0.14;
+      cursorDot.style.left = cx + 'px';
+      cursorDot.style.top  = cy + 'px';
+      requestAnimationFrame(animCursor);
+    })();
+  }
+
+  /* ── p5 particle field ──────────────────────────────────────── */
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const sketch = p => {
+      const N = 40;
+      const pts = [];
+      const makeP = () => ({
+        x: p.random(p.width),
+        y: p.random(p.height),
+        vx: p.random(-0.25, 0.25),
+        vy: p.random(-0.35, -0.06),
+        a:  p.random(0.04, 0.14),
+        r:  p.random(0.8, 2.2)
+      });
+
+      p.setup = () => {
+        const cnv = p.createCanvas(p.windowWidth, p.windowHeight);
+        cnv.parent('p5-host');
+        for (let i = 0; i < N; i++) pts.push(makeP());
+      };
+
+      p.draw = () => {
+        p.clear();
+        pts.forEach((pt, i) => {
+          pt.x += pt.vx;
+          pt.y += pt.vy;
+          if (pt.y < -10)            { pts[i] = makeP(); pts[i].y = p.height + 5; return; }
+          if (pt.x < -10)            pt.x = p.width + 5;
+          if (pt.x > p.width + 10)   pt.x = -5;
+          p.noStroke();
+          p.fill(184, 134, 28, pt.a * 255);
+          p.ellipse(pt.x, pt.y, pt.r * 2);
+        });
+      };
+
+      p.windowResized = () => p.resizeCanvas(p.windowWidth, p.windowHeight);
+    };
+
+    new p5(sketch);
+  });
+
+  /* ── Card stagger reveal (IntersectionObserver) ─────────────── */
+  (function initReveal() {
+    const cards = document.querySelectorAll('.game-card');
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const card = entry.target;
+        const grid = card.closest('.game-grid');
+        const siblings = grid ? [...grid.querySelectorAll('.game-card')] : [];
+        const idx = siblings.indexOf(card);
+        card.style.animationDelay = (idx * 80) + 'ms';
+        card.classList.add('is-visible');
+        card.addEventListener('animationend', () => {
+          card.classList.add('is-done');
+          card.style.animationDelay = '';
+        }, { once: true });
+        observer.unobserve(card);
+      });
+    }, { threshold: 0.06, rootMargin: '0px 0px -40px 0px' });
+
+    cards.forEach(c => observer.observe(c));
+  })();
+</script>
+</body>
+</html>

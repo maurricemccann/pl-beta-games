@@ -1,0 +1,275 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Origin Well — PL Beta Games</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    @font-face {
+      font-family: 'PLHand';
+      src: url('fonts/MaurriceMccannPsychedHandwrit-Regular.otf') format('opentype'),
+           url('fonts/MaurriceMccannPsychedHandwrit-Regular.ttf') format('truetype');
+      font-weight: 400; font-style: normal; font-display: swap;
+    }
+    :root { --gold:#B8861C; --gold-bright:#D4A830; --gold-dim:#7A5C14; --gold-muted:#9A7010; }
+    html, body { width:100%; height:100%; background:#F8F2E4; overflow:hidden; }
+    #three-host { position:fixed; inset:0; }
+    .nav-bar { position:fixed; top:24px; left:24px; z-index:10; }
+    .nav-link { font-size:10px; letter-spacing:0.3em; color:var(--gold-dim); text-decoration:none; text-transform:uppercase; }
+    .nav-link:hover { color:var(--gold); }
+    #year-display { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:10; text-align:center; pointer-events:none; }
+    #year-num { font-family:'Cormorant Garamond',serif; font-size:clamp(48px,10vw,80px); color:var(--gold); font-weight:300; opacity:0.8; }
+    #year-caption { font-size:10px; letter-spacing:0.3em; text-transform:uppercase; color:var(--gold-dim); margin-top:4px; }
+    #scroll-hint { position:fixed; bottom:32px; left:50%; transform:translateX(-50%); z-index:10;
+      font-size:9px; letter-spacing:0.3em; text-transform:uppercase; color:var(--gold-dim); }
+    #plhand { position:fixed; bottom:72px; left:50%; transform:translateX(-50%); z-index:10;
+      font-family:'PLHand',cursive; font-size:clamp(18px,3.5vw,26px); color:var(--gold);
+      opacity:0; transition:opacity 0.8s; pointer-events:none; white-space:nowrap; }
+  
+    /* iOS touch — finger gestures drive the canvas, not the page */
+    html, body { overscroll-behavior: none; touch-action: none; }
+    canvas { touch-action: none; }
+
+    /* real archive piece surfaced at the origin */
+    #origin-piece {
+      position:fixed; bottom:104px; left:50%;
+      transform:translateX(-50%) translateY(14px);
+      z-index:12; width:min(200px,52vw); text-align:center;
+      opacity:0; transition:opacity .8s, transform .8s; pointer-events:none;
+    }
+    #origin-piece.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    #origin-piece img { width:100%; aspect-ratio:1; object-fit:cover; border:1px solid var(--gold-dim); display:block; }
+    #origin-piece .t { font-family:'Cormorant Garamond',serif; font-style:italic; font-size:15px; color:var(--gold); margin-top:6px; }
+    #origin-piece .cr { font-size:9px; letter-spacing:0.3em; text-transform:uppercase; color:var(--gold-muted); margin-top:2px; }
+  </style>
+  <!-- PL theme injection: reads accent/glyph from URL params or sessionStorage -->
+  <script id="pl-theme">
+  (function(){
+    function hexToRgb(h){h=h.replace(/^#/,'');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function clamp(v){return Math.max(0,Math.min(255,Math.round(v)));}
+    function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(x){return clamp(x).toString(16).padStart(2,'0')}).join('');}
+    function lighten(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]+(255-c[0])*pct,c[1]+(255-c[1])*pct,c[2]+(255-c[2])*pct);}
+    function darken(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]*(1-pct),c[1]*(1-pct),c[2]*(1-pct));}
+    function isHex(s){return /^#?[0-9a-fA-F]{6}$/.test(s);}
+    function applyAccent(accent){
+      var h=accent.startsWith('#')?accent:'#'+accent;
+      var el=document.documentElement;
+      el.style.setProperty('--gold',h);
+      el.style.setProperty('--gold-bright',lighten(h,0.18));
+      el.style.setProperty('--gold-light',lighten(h,0.14));
+      el.style.setProperty('--gold-dim',darken(h,0.25));
+      el.style.setProperty('--gold-muted',darken(h,0.12));
+    }
+    var params=new URLSearchParams(window.location.search);
+    var accent=params.get('accent')||'';
+    var glyph=params.get('glyph')||'';
+    if(accent&&isHex(accent)){
+      sessionStorage.setItem('pl_accent',accent);
+      applyAccent(accent);
+    } else {
+      var sa=sessionStorage.getItem('pl_accent');
+      if(sa&&isHex(sa)){applyAccent(sa);}
+    }
+    if(glyph){sessionStorage.setItem('pl_glyph',glyph);}
+    window.PL_GLYPH=glyph||sessionStorage.getItem('pl_glyph')||'';
+    function propagateLinks(){
+      var a=sessionStorage.getItem('pl_accent');
+      var g=sessionStorage.getItem('pl_glyph');
+      if(!a&&!g)return;
+      var links=document.querySelectorAll('a[href]');
+      links.forEach(function(el){
+        var href=el.getAttribute('href');
+        if(!href||href.startsWith('http')||href.startsWith('//')||href.startsWith('#'))return;
+        if(!href.endsWith('.html'))return;
+        if(el.dataset.plThemed)return;
+        el.dataset.plThemed='1';
+        var url=new URL(href,window.location.href);
+        if(a)url.searchParams.set('accent',a);
+        if(g)url.searchParams.set('glyph',g);
+        el.setAttribute('href',url.pathname.split('/').pop()+'?'+url.searchParams.toString());
+      });
+    }
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',propagateLinks);}else{propagateLinks();}
+  })();
+  </script><script src="pl-game-data.js"></script>
+<script src="pl-points.js" defer></script></head>
+<body>
+<div id="game-instructions" style="position:fixed;inset:0;background:#F8F2E4;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;font-family:'PLHand',cursive;">
+  <div style="max-width:500px;text-align:center;">
+    <p style="font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;">How to Play</p>
+    <h2 style="font-size:clamp(26px,4vw,40px);color:#0A0A0A;margin-bottom:20px;line-height:1.2;font-weight:400;">The Origin Well</h2>
+    <p style="font-size:clamp(16px,2.5vw,20px);color:#3A3020;line-height:1.7;margin-bottom:36px;">Everything begins at the origin. Descend into where the practice started. Ascend with what you find there.</p>
+    <button id="begin-btn" style="font-family:'PLHand',cursive;font-size:20px;background:var(--gold);color:#F8F2E4;border:none;padding:14px 40px;cursor:pointer;letter-spacing:0.1em;">Begin</button>
+  </div>
+</div>
+<script>
+(function(){
+  var panel=document.getElementById('game-instructions');
+  if(!panel)return;
+  if(sessionStorage.getItem('pl_seen_'+location.pathname)){panel.style.display='none';return;}
+  document.getElementById('begin-btn').addEventListener('click',function(){
+    panel.style.display='none';
+    sessionStorage.setItem('pl_seen_'+location.pathname,'1');
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){panel.style.display='none';sessionStorage.setItem('pl_seen_'+location.pathname,'1');}
+  });
+})();
+</script>
+  <div id="three-host"></div>
+  <nav class="nav-bar"><a class="nav-link" href="index.html">← Games</a></nav>
+  <div id="year-display">
+    <div id="year-num">2025</div>
+    <div id="year-caption">Compound</div>
+  </div>
+  <div id="scroll-hint">Scroll or drag to descend</div>
+  <div id="plhand">The origin holds.</div>
+  <div id="origin-piece"><img alt=""><div class="t"></div><div class="cr"></div></div>
+
+<script>
+  const ARCHIVE_YEARS = [
+    { y: 0,     year: 2025, caption: 'Compound', pieces: 138, color: 0xFFE890 },
+    { y: -120,  year: 2024, caption: 'The Signal Spreads', pieces: 280, color: 0xD4B050 },
+    { y: -240,  year: 2023, caption: 'Frequency Rising', pieces: 320, color: 0xF0D870 },
+    { y: -360,  year: 2022, caption: 'The Archive Grows', pieces: 300, color: 0xE8C860 },
+    { y: -480,  year: 2021, caption: 'The Practice Holds', pieces: 280, color: 0x9A7A38 },
+    { y: -600,  year: 2020, caption: 'Despite Everything', pieces: 250, color: 0xB09040 },
+    { y: -720,  year: 2019, caption: 'The Beginning — A Piece of Chalk', pieces: 200, color: 0xC9A84C },
+  ];
+
+  const host    = document.getElementById('three-host');
+  const elYear  = document.getElementById('year-num');
+  const elCap   = document.getElementById('year-caption');
+  const elHand  = document.getElementById('plhand');
+
+  const scene    = new THREE.Scene();
+  scene.fog      = new THREE.Fog(0xF8F2E4, 100, 500);
+  const camera   = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 1000);
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setClearColor(0xF8F2E4, 1);
+  host.appendChild(renderer.domElement);
+
+  camera.position.set(0, 40, 80);
+  camera.lookAt(0, 0, 0);
+
+  // Build each year layer
+  ARCHIVE_YEARS.forEach(layer => {
+    const group = new THREE.Group();
+    group.position.y = layer.y;
+
+    // Ring of particles
+    const count = layer.pieces;
+    const positions = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2;
+      const r     = 30 + Math.random() * 40;
+      positions[i*3]   = Math.cos(angle) * r + (Math.random()-0.5)*20;
+      positions[i*3+1] = (Math.random()-0.5) * 20;
+      positions[i*3+2] = Math.sin(angle) * r + (Math.random()-0.5)*20;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const mat = new THREE.PointsMaterial({ color: layer.color, size: 2.6, transparent: true, opacity: 0.9 });
+    group.add(new THREE.Points(geo, mat));
+
+    // Horizontal ring line
+    const ringPts = [];
+    for (let i = 0; i <= 64; i++) {
+      const a = (i / 64) * Math.PI * 2;
+      ringPts.push(new THREE.Vector3(Math.cos(a)*72, 0, Math.sin(a)*72));
+    }
+    const ringGeo = new THREE.BufferGeometry().setFromPoints(ringPts);
+    const ringMat = new THREE.LineBasicMaterial({ color: layer.color, transparent: true, opacity: 0.2 });
+    group.add(new THREE.Line(ringGeo, ringMat));
+
+    scene.add(group);
+  });
+
+  // Vertical shaft particles
+  const shaftCount = 400;
+  const shaftPos   = new Float32Array(shaftCount * 3);
+  for (let i = 0; i < shaftCount; i++) {
+    shaftPos[i*3]   = (Math.random()-0.5) * 20;
+    shaftPos[i*3+1] = -(Math.random() * 750);
+    shaftPos[i*3+2] = (Math.random()-0.5) * 20;
+  }
+  const shaftGeo = new THREE.BufferGeometry();
+  shaftGeo.setAttribute('position', new THREE.BufferAttribute(shaftPos, 3));
+  const shaftMat = new THREE.PointsMaterial({ color: 0xB8861C, size: 1.8, transparent: true, opacity: 0.6 });
+  scene.add(new THREE.Points(shaftGeo, shaftMat));
+
+  // Descent
+  let targetY     = 0;
+  let currentY    = 40;
+  let handShown   = false;
+  let frame       = 0;
+
+  window.addEventListener('wheel', e => {
+    targetY = Math.max(-760, Math.min(40, targetY - e.deltaY * 0.3));
+    checkYear();
+  }, { passive: true });
+
+  let touchStartY = 0;
+  window.addEventListener('touchstart', e => { touchStartY = e.touches[0].clientY; }, { passive: true });
+  window.addEventListener('touchmove', e => {
+    const dy = e.touches[0].clientY - touchStartY;
+    targetY  = Math.max(-760, Math.min(40, targetY + dy * 0.8));
+    touchStartY = e.touches[0].clientY;
+    checkYear();
+  }, { passive: true });
+
+  // Real archive piece surfaced when you reach the origin (PLGames)
+  const elOriginPiece = document.getElementById('origin-piece');
+  let originRevealed = false;
+  function showOriginPiece(p) {
+    if (!p) return;
+    elOriginPiece.querySelector('img').src   = p.thumb || p.url || '';
+    elOriginPiece.querySelector('.t').textContent  = p.title || 'The origin';
+    elOriginPiece.querySelector('.cr').textContent = p.cr || '';
+    elOriginPiece.classList.add('show');
+  }
+
+  function checkYear() {
+    const nearestLayer = ARCHIVE_YEARS.reduce((prev, curr) => {
+      return Math.abs(curr.y - targetY) < Math.abs(prev.y - targetY) ? curr : prev;
+    });
+    elYear.textContent = nearestLayer.year;
+    elCap.textContent  = nearestLayer.caption;
+    if (!handShown && targetY < -300) {
+      handShown = true;
+      elHand.style.opacity = '1';
+      setTimeout(() => { elHand.style.opacity = '0'; }, 3000);
+    }
+    // descend to the origin → a real piece rises to be carried back up
+    if (targetY < -680 && !originRevealed) {
+      originRevealed = true;
+      if (window.PLGames) PLGames.randomPiece().then(showOriginPiece);
+    } else if (targetY > -400 && originRevealed) {
+      originRevealed = false;
+      elOriginPiece.classList.remove('show');   // re-reveal a fresh piece next descent
+    }
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+    frame++;
+    currentY += (targetY - currentY) * 0.05;
+    camera.position.y = currentY;
+    camera.rotation.y = Math.sin(frame * 0.003) * 0.05;
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+</script>
+</body>
+</html>

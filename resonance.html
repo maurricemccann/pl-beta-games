@@ -1,0 +1,519 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resonance — PL Beta Games</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @font-face {
+      font-family: 'PLHand';
+      src: url('fonts/MaurriceMccannPsychedHandwrit-Regular.otf') format('opentype'),
+           url('fonts/MaurriceMccannPsychedHandwrit-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --void: #F8F2E4;
+      --gold: #B8861C;
+      --gold-dim: #7A5C14;
+      --gold-muted: #9A7020;
+      --bone: #0A0A0A;
+      --ash: #3A3020;
+      --border: #D4AF6A;
+      --btn-bg: #EDE5CE;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--void);
+      color: var(--bone);
+      font-family: 'PLHand', cursive;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    #p5-host {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+    #p5-host canvas { display: block; width: 100% !important; height: 100% !important; }
+
+    .page {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-bar {
+      position: fixed;
+      top: 24px; left: 24px;
+      z-index: 10;
+    }
+    .nav-link {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      color: var(--ash);
+      text-decoration: none;
+      text-transform: uppercase;
+    }
+    .nav-link:hover { color: var(--gold); }
+
+    #hud {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 28px;
+      font-size: 9px;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      color: var(--gold-dim);
+    }
+    #hud strong { color: var(--gold); font-weight: 300; }
+
+    #board-wrap {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 3px;
+      width: min(350px, 85vw);
+    }
+
+    @media (max-width: 400px) {
+      #board-wrap { width: min(280px, 90vw); }
+    }
+
+    .gem {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(14px, 3vw, 18px);
+      border: 1px solid var(--border);
+      background: var(--btn-bg);
+      cursor: pointer;
+      transition: transform 0.1s, border-color 0.1s, background 0.15s;
+      border-radius: 3px;
+      line-height: 1;
+    }
+    .gem:hover { border-color: var(--gold-dim); transform: scale(1.06); }
+    .gem.selected {
+      border-color: var(--gold);
+      background: rgba(201,168,76,0.18);
+      transform: scale(1.08);
+    }
+    .gem.clearing { animation: gem-clear 0.3s ease forwards; }
+    @keyframes gem-clear {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.3); opacity: 0.6; }
+      100% { transform: scale(0); opacity: 0; }
+    }
+
+    #plhand-win {
+      position: fixed;
+      bottom: 72px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      font-family: 'PLHand', cursive;
+      font-size: clamp(18px, 3.5vw, 26px);
+      color: var(--gold);
+      opacity: 0;
+      transition: opacity 0.6s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    #overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: rgba(8,8,8,0.92);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s;
+    }
+    #overlay.visible { opacity: 1; pointer-events: all; }
+    #overlay-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: clamp(22px, 5vw, 36px);
+      color: var(--gold);
+    }
+    #overlay-sub { font-size: 10px; letter-spacing: 0.4em; text-transform: uppercase; color: var(--ash); }
+    #overlay-hand { font-family: 'PLHand', cursive; font-size: clamp(18px, 4vw, 26px); color: var(--gold); }
+
+    .btn {
+      padding: 10px 24px;
+      background: var(--btn-bg);
+      border: 1px solid var(--gold-dim);
+      color: var(--gold);
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .btn:hover { border-color: var(--gold); }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; }
+      #p5-host { display: none; }
+    }
+  </style>
+  <!-- PL theme injection: reads accent/glyph from URL params or sessionStorage -->
+  <script id="pl-theme">
+  (function(){
+    function hexToRgb(h){h=h.replace(/^#/,'');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function clamp(v){return Math.max(0,Math.min(255,Math.round(v)));}
+    function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(x){return clamp(x).toString(16).padStart(2,'0')}).join('');}
+    function lighten(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]+(255-c[0])*pct,c[1]+(255-c[1])*pct,c[2]+(255-c[2])*pct);}
+    function darken(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]*(1-pct),c[1]*(1-pct),c[2]*(1-pct));}
+    function isHex(s){return /^#?[0-9a-fA-F]{6}$/.test(s);}
+    function applyAccent(accent){
+      var h=accent.startsWith('#')?accent:'#'+accent;
+      var el=document.documentElement;
+      el.style.setProperty('--gold',h);
+      el.style.setProperty('--gold-bright',lighten(h,0.18));
+      el.style.setProperty('--gold-light',lighten(h,0.14));
+      el.style.setProperty('--gold-dim',darken(h,0.25));
+      el.style.setProperty('--gold-muted',darken(h,0.12));
+    }
+    var params=new URLSearchParams(window.location.search);
+    var accent=params.get('accent')||'';
+    var glyph=params.get('glyph')||'';
+    if(accent&&isHex(accent)){
+      sessionStorage.setItem('pl_accent',accent);
+      applyAccent(accent);
+    } else {
+      var sa=sessionStorage.getItem('pl_accent');
+      if(sa&&isHex(sa)){applyAccent(sa);}
+    }
+    if(glyph){sessionStorage.setItem('pl_glyph',glyph);}
+    window.PL_GLYPH=glyph||sessionStorage.getItem('pl_glyph')||'';
+    function propagateLinks(){
+      var a=sessionStorage.getItem('pl_accent');
+      var g=sessionStorage.getItem('pl_glyph');
+      if(!a&&!g)return;
+      var links=document.querySelectorAll('a[href]');
+      links.forEach(function(el){
+        var href=el.getAttribute('href');
+        if(!href||href.startsWith('http')||href.startsWith('//')||href.startsWith('#'))return;
+        if(!href.endsWith('.html'))return;
+        if(el.dataset.plThemed)return;
+        el.dataset.plThemed='1';
+        var url=new URL(href,window.location.href);
+        if(a)url.searchParams.set('accent',a);
+        if(g)url.searchParams.set('glyph',g);
+        el.setAttribute('href',url.pathname.split('/').pop()+'?'+url.searchParams.toString());
+      });
+    }
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',propagateLinks);}else{propagateLinks();}
+  })();
+  </script><script src="pl-game-data.js"></script>
+<script src="pl-points.js" defer></script></head>
+<body>
+<div id="game-instructions" style="position:fixed;inset:0;background:#F8F2E4;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;font-family:'PLHand',cursive;">
+  <div style="max-width:500px;text-align:center;">
+    <p style="font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:#B8861C;margin-bottom:16px;">How to Play</p>
+    <h2 style="font-size:clamp(26px,4vw,40px);color:#0A0A0A;margin-bottom:20px;line-height:1.2;font-weight:400;">Resonance</h2>
+    <p style="font-size:clamp(16px,2.5vw,20px);color:#3A3020;line-height:1.7;margin-bottom:36px;">Find the frequency and hold it steady. Do not chase. Do not force. The field responds to what you sustain.</p>
+    <button id="begin-btn" style="font-family:'PLHand',cursive;font-size:20px;background:#B8861C;color:#F8F2E4;border:none;padding:14px 40px;cursor:pointer;letter-spacing:0.1em;">Begin</button>
+  </div>
+</div>
+<script>
+(function(){
+  var panel=document.getElementById('game-instructions');
+  if(!panel)return;
+  if(sessionStorage.getItem('pl_seen_'+location.pathname)){panel.style.display='none';return;}
+  document.getElementById('begin-btn').addEventListener('click',function(){
+    panel.style.display='none';
+    sessionStorage.setItem('pl_seen_'+location.pathname,'1');
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){panel.style.display='none';sessionStorage.setItem('pl_seen_'+location.pathname,'1');}
+  });
+})();
+</script>
+
+  <div id="p5-host"></div>
+
+  <nav class="nav-bar">
+    <a class="nav-link" href="index.html">← Games</a>
+  </nav>
+
+  <div id="hud">
+    <span>Score: <strong id="scoreNum">0</strong></span>
+    <span>Target: <strong>500</strong></span>
+  </div>
+
+  <div class="page">
+    <div id="board-wrap"></div>
+  </div>
+
+  <div id="plhand-win">Frequencies aligned.</div>
+
+  <div id="overlay">
+    <div id="overlay-title">Resonance Achieved</div>
+    <div id="overlay-sub"></div>
+    <div id="overlay-hand">Watch this.</div>
+    <button class="btn" id="restartBtn" style="margin-top:12px">Resonate Again</button>
+  </div>
+
+<script>
+  /* ── LEXICON clusters ─────────────────────────────────────── */
+  const GEMS = [
+    { id: 0, symbol: '⌒', name: 'Curve',        color: 'rgba(201,168,76,0.85)'   },
+    { id: 1, symbol: '◈', name: 'Preparation',  color: 'rgba(180,140,80,0.75)'   },
+    { id: 2, symbol: '⊕', name: 'Control',      color: 'rgba(160,120,60,0.75)'   },
+    { id: 3, symbol: '∞', name: 'Persistence',  color: 'rgba(140,100,50,0.75)'   },
+    { id: 4, symbol: '◉', name: 'Signal',       color: 'rgba(220,180,90,0.85)'   },
+    { id: 5, symbol: '▣', name: 'Archive',      color: 'rgba(120,90,40,0.75)'    },
+    { id: 6, symbol: '⬡', name: 'Congregation', color: 'rgba(240,210,120,0.8)'   },
+  ];
+
+  const COLS = 7;
+  const ROWS = 7;
+  const WIN  = 500;
+  const TARGET_MATCH = 3;
+
+  let board, selected, score, pulses, won;
+
+  const elBoard    = document.getElementById('board-wrap');
+  const elScore    = document.getElementById('scoreNum');
+  const elWin      = document.getElementById('plhand-win');
+  const elOverlay  = document.getElementById('overlay');
+  const elOvSub    = document.getElementById('overlay-sub');
+  const restartBtn = document.getElementById('restartBtn');
+
+  /* ── Init ────────────────────────────────────────────────── */
+  function init() {
+    board    = Array.from({ length: ROWS * COLS }, () => Math.floor(Math.random() * GEMS.length));
+    selected = null;
+    score    = 0;
+    pulses   = [];
+    won      = false;
+    elScore.textContent = 0;
+    render();
+  }
+
+  function idx(r, c) { return r * COLS + c; }
+
+  /* ── Render ──────────────────────────────────────────────── */
+  function render() {
+    elBoard.innerHTML = '';
+    board.forEach((gid, i) => {
+      const gem  = GEMS[gid];
+      const cell = document.createElement('div');
+      cell.className  = 'gem';
+      cell.style.background  = i === selected ? 'rgba(201,168,76,0.25)' : gem.color.replace('0.', '0.12').replace('0.85','0.08').replace('0.75','0.06');
+      cell.style.borderColor = i === selected ? 'var(--gold)' : 'var(--border)';
+      cell.style.color       = gem.color;
+      cell.textContent       = gem.symbol;
+      cell.title             = gem.name;
+      if (i === selected) cell.classList.add('selected');
+      cell.addEventListener('click', () => clickCell(i));
+      elBoard.appendChild(cell);
+    });
+  }
+
+  /* ── Swap logic ──────────────────────────────────────────── */
+  function clickCell(i) {
+    if (won) return;
+
+    if (selected === null) {
+      selected = i;
+      render();
+      return;
+    }
+
+    if (selected === i) {
+      selected = null;
+      render();
+      return;
+    }
+
+    // check adjacency
+    const sr = Math.floor(selected / COLS), sc = selected % COLS;
+    const ir = Math.floor(i / COLS),        ic = i % COLS;
+    const adjacent = (Math.abs(sr - ir) === 1 && sc === ic) ||
+                     (Math.abs(sc - ic) === 1 && sr === ir);
+
+    if (!adjacent) {
+      selected = i;
+      render();
+      return;
+    }
+
+    // swap
+    [board[selected], board[i]] = [board[i], board[selected]];
+
+    const matches = findMatches();
+    if (matches.size === 0) {
+      // revert
+      [board[selected], board[i]] = [board[i], board[selected]];
+    } else {
+      pulses.push({ a: selected, b: i });
+      clearMatches(matches);
+    }
+
+    selected = null;
+    render();
+  }
+
+  /* ── Match detection ─────────────────────────────────────── */
+  function findMatches() {
+    const matched = new Set();
+
+    // horizontal
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c <= COLS - TARGET_MATCH; c++) {
+        const v = board[idx(r, c)];
+        if (v < 0) continue;
+        let run = 1;
+        while (c + run < COLS && board[idx(r, c + run)] === v) run++;
+        if (run >= TARGET_MATCH) {
+          for (let k = 0; k < run; k++) matched.add(idx(r, c + k));
+        }
+      }
+    }
+
+    // vertical
+    for (let c = 0; c < COLS; c++) {
+      for (let r = 0; r <= ROWS - TARGET_MATCH; r++) {
+        const v = board[idx(r, c)];
+        if (v < 0) continue;
+        let run = 1;
+        while (r + run < ROWS && board[idx(r + run, c)] === v) run++;
+        if (run >= TARGET_MATCH) {
+          for (let k = 0; k < run; k++) matched.add(idx(r + k, c));
+        }
+      }
+    }
+
+    return matched;
+  }
+
+  function clearMatches(matches) {
+    const pts = matches.size;
+    score += pts * 10;
+    elScore.textContent = score;
+
+    // clear cells
+    matches.forEach(i => { board[i] = -1; });
+
+    // gravity: drop tiles down
+    for (let c = 0; c < COLS; c++) {
+      let write = ROWS - 1;
+      for (let r = ROWS - 1; r >= 0; r--) {
+        if (board[idx(r, c)] !== -1) {
+          board[idx(write, c)] = board[idx(r, c)];
+          if (write !== r) board[idx(r, c)] = -1;
+          write--;
+        }
+      }
+      // fill top
+      for (let r = write; r >= 0; r--) {
+        board[idx(r, c)] = Math.floor(Math.random() * GEMS.length);
+      }
+    }
+
+    // chain check
+    const next = findMatches();
+    if (next.size > 0) clearMatches(next);
+
+    // win
+    if (score >= WIN && !won) {
+      won = true;
+      elWin.style.opacity = '1';
+      setTimeout(() => {
+        elWin.style.opacity  = '0';
+        elOvSub.textContent  = `${score} resonance points`;
+        elOverlay.classList.add('visible');
+      }, 2000);
+    }
+
+    render();
+  }
+
+  restartBtn.addEventListener('click', () => {
+    elOverlay.classList.remove('visible');
+    init();
+  });
+
+  /* ── p5 overlay animations ───────────────────────────────── */
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      init(); return;
+    }
+
+    let particles = [];
+
+    const sketch = p => {
+      p.setup = () => {
+        const cnv = p.createCanvas(p.windowWidth, p.windowHeight);
+        cnv.parent('p5-host');
+      };
+
+      p.draw = () => {
+        p.clear();
+
+        // consume pulses
+        while (pulses.length > 0) {
+          const pl = pulses.pop();
+          const boardEl = elBoard.getBoundingClientRect();
+          const cellW = boardEl.width / COLS;
+          const cellH = boardEl.height / ROWS;
+
+          [pl.a, pl.b].forEach(i => {
+            const r = Math.floor(i / COLS), c = i % COLS;
+            const cx = boardEl.left + c * cellW + cellW / 2;
+            const cy = boardEl.top  + r * cellH + cellH / 2;
+            for (let k = 0; k < 12; k++) {
+              particles.push({
+                x: cx, y: cy,
+                vx: p.random(-4, 4),
+                vy: p.random(-5, -1),
+                alpha: 160,
+              });
+            }
+          });
+        }
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const pt = particles[i];
+          pt.x += pt.vx; pt.y += pt.vy;
+          pt.alpha -= 6;
+          if (pt.alpha <= 0) { particles.splice(i, 1); continue; }
+          p.fill(201, 168, 76, pt.alpha);
+          p.noStroke();
+          p.ellipse(pt.x, pt.y, 4);
+        }
+      };
+
+      p.windowResized = () => p.resizeCanvas(p.windowWidth, p.windowHeight);
+    };
+
+    new p5(sketch);
+    init();
+  });
+</script>
+</body>
+</html>

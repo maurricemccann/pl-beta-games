@@ -1,0 +1,562 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Compound — PL Beta Games</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @font-face {
+      font-family: 'PLHand';
+      src: url('fonts/MaurriceMccannPsychedHandwrit-Regular.otf') format('opentype'),
+           url('fonts/MaurriceMccannPsychedHandwrit-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --void: #F8F2E4;
+      --gold: #B8861C;
+      --gold-bright: #D4A830;
+      --gold-dim: #7A5C14;
+      --gold-muted: #9A7020;
+      --bone: #0A0A0A;
+      --ash: #3A3020;
+      --border: #D4AF6A;
+      --btn-bg: #EDE5CE;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--void);
+      color: var(--bone);
+      font-family: 'PLHand', cursive;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    #p5-host {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+    #p5-host canvas { display: block; width: 100% !important; height: 100% !important; }
+
+    .page {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-bar {
+      position: fixed;
+      top: 24px; left: 24px;
+      z-index: 10;
+    }
+    .nav-link {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      color: var(--ash);
+      text-decoration: none;
+      text-transform: uppercase;
+    }
+    .nav-link:hover { color: var(--gold); }
+
+    #hud {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 28px;
+      font-size: 9px;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      color: var(--gold-dim);
+      white-space: nowrap;
+    }
+    #hud strong { color: var(--gold); font-weight: 300; }
+
+    #stage-label {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--gold-muted);
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      width: min(320px, 80vw);
+    }
+
+    @media (max-width: 400px) {
+      #grid { width: 260px; }
+    }
+
+    .cell {
+      aspect-ratio: 1;
+      background: var(--btn-bg);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: 11px;
+      color: var(--bone);
+      letter-spacing: 0.04em;
+      text-align: center;
+      padding: 2px;
+      line-height: 1.2;
+      transition: background 0.1s, transform 0.08s;
+    }
+
+    .cell.merge { transform: scale(1.1); }
+    .cell[data-val="1"]  { background: #EDE5CE; color: var(--ash); }
+    .cell[data-val="2"]  { background: #161408; color: var(--gold-dim); }
+    .cell[data-val="4"]  { background: #1e1c08; color: #7a6428; }
+    .cell[data-val="8"]  { background: #2a2006; color: #a0842e; }
+    .cell[data-val="16"] { background: #352800; color: var(--gold-muted); }
+    .cell[data-val="32"] { background: #3d2c00; color: var(--gold); }
+    .cell[data-val="64"] { background: #4a3200; color: var(--gold); }
+    .cell[data-val="128"]{ background: #563800; color: var(--gold-bright); }
+    .cell[data-val="256"]{ background: #5e3e00; color: var(--gold-bright); }
+    .cell[data-val="512"]{ background: #644400; color: #fff; }
+    .cell[data-val="1024"]{ background: #704a00; color: #fff; font-size: 9px; }
+    .cell[data-val="2048"]{ background: #7a5000; color: #fff; font-size: 8px; }
+
+    #plhand-stage {
+      position: fixed;
+      bottom: 72px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      font-family: 'PLHand', cursive;
+      font-size: clamp(16px, 3vw, 24px);
+      color: var(--gold);
+      opacity: 0;
+      transition: opacity 0.6s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    #overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: rgba(8,8,8,0.94);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s;
+    }
+    #overlay.visible { opacity: 1; pointer-events: all; }
+    #overlay-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: clamp(22px, 5vw, 36px);
+      color: var(--gold);
+      text-align: center;
+      max-width: 400px;
+      padding: 0 24px;
+      line-height: 1.4;
+    }
+    #overlay-sub {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--ash);
+      text-align: center;
+    }
+    #overlay-hand {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(18px, 4vw, 26px);
+      color: var(--gold);
+    }
+
+    .btn {
+      padding: 10px 24px;
+      background: var(--btn-bg);
+      border: 1px solid var(--gold-dim);
+      color: var(--gold);
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .btn:hover { border-color: var(--gold); }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; }
+      #p5-host { display: none; }
+    }
+  </style>
+  <!-- PL theme injection: reads accent/glyph from URL params or sessionStorage -->
+  <script id="pl-theme">
+  (function(){
+    function hexToRgb(h){h=h.replace(/^#/,'');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function clamp(v){return Math.max(0,Math.min(255,Math.round(v)));}
+    function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(x){return clamp(x).toString(16).padStart(2,'0')}).join('');}
+    function lighten(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]+(255-c[0])*pct,c[1]+(255-c[1])*pct,c[2]+(255-c[2])*pct);}
+    function darken(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]*(1-pct),c[1]*(1-pct),c[2]*(1-pct));}
+    function isHex(s){return /^#?[0-9a-fA-F]{6}$/.test(s);}
+    function applyAccent(accent){
+      var h=accent.startsWith('#')?accent:'#'+accent;
+      var el=document.documentElement;
+      el.style.setProperty('--gold',h);
+      el.style.setProperty('--gold-bright',lighten(h,0.18));
+      el.style.setProperty('--gold-light',lighten(h,0.14));
+      el.style.setProperty('--gold-dim',darken(h,0.25));
+      el.style.setProperty('--gold-muted',darken(h,0.12));
+    }
+    var params=new URLSearchParams(window.location.search);
+    var accent=params.get('accent')||'';
+    var glyph=params.get('glyph')||'';
+    if(accent&&isHex(accent)){
+      sessionStorage.setItem('pl_accent',accent);
+      applyAccent(accent);
+    } else {
+      var sa=sessionStorage.getItem('pl_accent');
+      if(sa&&isHex(sa)){applyAccent(sa);}
+    }
+    if(glyph){sessionStorage.setItem('pl_glyph',glyph);}
+    window.PL_GLYPH=glyph||sessionStorage.getItem('pl_glyph')||'';
+    function propagateLinks(){
+      var a=sessionStorage.getItem('pl_accent');
+      var g=sessionStorage.getItem('pl_glyph');
+      if(!a&&!g)return;
+      var links=document.querySelectorAll('a[href]');
+      links.forEach(function(el){
+        var href=el.getAttribute('href');
+        if(!href||href.startsWith('http')||href.startsWith('//')||href.startsWith('#'))return;
+        if(!href.endsWith('.html'))return;
+        if(el.dataset.plThemed)return;
+        el.dataset.plThemed='1';
+        var url=new URL(href,window.location.href);
+        if(a)url.searchParams.set('accent',a);
+        if(g)url.searchParams.set('glyph',g);
+        el.setAttribute('href',url.pathname.split('/').pop()+'?'+url.searchParams.toString());
+      });
+    }
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',propagateLinks);}else{propagateLinks();}
+  })();
+  </script><script src="pl-game-data.js"></script>
+<script src="pl-points.js" defer></script></head>
+<body>
+<div id="game-instructions" style="position:fixed;inset:0;background:#F8F2E4;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;font-family:'PLHand',cursive;">
+  <div style="max-width:500px;text-align:center;">
+    <p style="font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;">How to Play</p>
+    <h2 style="font-size:clamp(26px,4vw,40px);color:#0A0A0A;margin-bottom:20px;line-height:1.2;font-weight:400;">Compound</h2>
+    <p style="font-size:clamp(16px,2.5vw,20px);color:#3A3020;line-height:1.7;margin-bottom:36px;">Seven years compounds into this. Every session adds. Stay inside the accumulation and watch the math work.</p>
+    <button id="begin-btn" style="font-family:'PLHand',cursive;font-size:20px;background:var(--gold);color:#F8F2E4;border:none;padding:14px 40px;cursor:pointer;letter-spacing:0.1em;">Begin</button>
+  </div>
+</div>
+<script>
+(function(){
+  var panel=document.getElementById('game-instructions');
+  if(!panel)return;
+  if(sessionStorage.getItem('pl_seen_'+location.pathname)){panel.style.display='none';return;}
+  document.getElementById('begin-btn').addEventListener('click',function(){
+    panel.style.display='none';
+    sessionStorage.setItem('pl_seen_'+location.pathname,'1');
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){panel.style.display='none';sessionStorage.setItem('pl_seen_'+location.pathname,'1');}
+  });
+})();
+</script>
+
+  <div id="p5-host"></div>
+
+  <nav class="nav-bar">
+    <a class="nav-link" href="index.html">← Games</a>
+  </nav>
+
+  <div id="hud">
+    <span>Score: <strong id="scoreNum">0</strong></span>
+    <span>Stage: <strong id="stageLabel">Day 1</strong></span>
+  </div>
+
+  <div class="page">
+    <div id="stage-label" id="stageLine">Compound the practice.</div>
+    <div id="grid"></div>
+  </div>
+
+  <div id="plhand-stage"></div>
+
+  <div id="overlay">
+    <div id="overlay-title">Year 7. The practice compounds.</div>
+    <div id="overlay-sub"></div>
+    <div id="overlay-hand">Watch this.</div>
+    <button class="btn" id="restartBtn" style="margin-top:12px">Begin Again</button>
+  </div>
+
+<script>
+  /* ── Practice stage thresholds (tile values → stages) ───── */
+  const STAGES = [
+    { val: 2,    label: 'Day 1',    phrase: 'The practice begins.' },
+    { val: 4,    label: 'Week 1',   phrase: 'Consistency over motivation.' },
+    { val: 8,    label: 'Month 1',  phrase: 'The pattern is forming.' },
+    { val: 16,   label: 'Month 3',  phrase: 'The curve remembers.' },
+    { val: 32,   label: 'Month 6',  phrase: 'The practice compounds.' },
+    { val: 64,   label: 'Year 1',   phrase: 'One year. No days off.' },
+    { val: 128,  label: 'Year 2',   phrase: 'The archive grows.' },
+    { val: 256,  label: 'Year 3',   phrase: 'Despite the conditions.' },
+    { val: 512,  label: 'Year 4',   phrase: 'Seven years ahead.' },
+    { val: 1024, label: 'Year 5',   phrase: 'The curve covers the world.' },
+    { val: 2048, label: 'Year 7',   phrase: 'Watch this.' },
+  ];
+
+  const SIZE = 4;
+  let board, score, currentStage, pulses, mergeFlash;
+
+  /* ── DOM ─────────────────────────────────────────────────── */
+  const elGrid     = document.getElementById('grid');
+  const elScore    = document.getElementById('scoreNum');
+  const elStageLbl = document.getElementById('stageLabel');
+  const elStageMsg = document.getElementById('stage-label');
+  const elHand     = document.getElementById('plhand-stage');
+  const elOverlay  = document.getElementById('overlay');
+  const elOvSub    = document.getElementById('overlay-sub');
+  const restartBtn = document.getElementById('restartBtn');
+
+  /* ── Init ────────────────────────────────────────────────── */
+  function init() {
+    board        = Array(SIZE * SIZE).fill(0);
+    score        = 0;
+    currentStage = 0;
+    pulses       = [];
+    mergeFlash   = [];
+    elScore.textContent = 0;
+    elStageLbl.textContent = 'Day 1';
+    elStageMsg.textContent = 'Compound the practice.';
+    addTile();
+    addTile();
+    render();
+  }
+
+  function addTile() {
+    const empty = board.map((v, i) => v === 0 ? i : -1).filter(i => i >= 0);
+    if (!empty.length) return;
+    const pos = empty[Math.floor(Math.random() * empty.length)];
+    board[pos] = Math.random() < 0.9 ? 2 : 4;
+  }
+
+  /* ── Render ──────────────────────────────────────────────── */
+  function render() {
+    elGrid.innerHTML = '';
+    board.forEach((val, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.val = val;
+
+      if (val > 0) {
+        const stage = STAGES.find(s => s.val === val);
+        cell.textContent = stage ? stage.label : val;
+        if (mergeFlash.includes(i)) {
+          cell.classList.add('merge');
+          setTimeout(() => cell.classList.remove('merge'), 100);
+        }
+      }
+
+      elGrid.appendChild(cell);
+    });
+    mergeFlash = [];
+  }
+
+  /* ── Move logic ──────────────────────────────────────────── */
+  function move(dir) {
+    const prev    = JSON.stringify(board);
+    let newScore  = 0;
+    const newBoard = Array(SIZE * SIZE).fill(0);
+
+    for (let i = 0; i < SIZE; i++) {
+      let row = [];
+      for (let j = 0; j < SIZE; j++) {
+        const idx = dir === 'left'  ? i * SIZE + j :
+                    dir === 'right' ? i * SIZE + (SIZE - 1 - j) :
+                    dir === 'up'    ? j * SIZE + i :
+                                     (SIZE - 1 - j) * SIZE + i;
+        if (board[idx] !== 0) row.push({ val: board[idx], idx });
+      }
+
+      // merge
+      const merged = [];
+      let k = 0;
+      while (k < row.length) {
+        if (k + 1 < row.length && row[k].val === row[k + 1].val) {
+          const v = row[k].val * 2;
+          merged.push(v);
+          newScore += v;
+          k += 2;
+        } else {
+          merged.push(row[k].val);
+          k++;
+        }
+      }
+      while (merged.length < SIZE) merged.push(0);
+
+      // place back
+      merged.forEach((v, j) => {
+        const idx = dir === 'left'  ? i * SIZE + j :
+                    dir === 'right' ? i * SIZE + (SIZE - 1 - j) :
+                    dir === 'up'    ? j * SIZE + i :
+                                     (SIZE - 1 - j) * SIZE + i;
+        newBoard[idx] = v;
+        if (v > 0 && newScore > 0) mergeFlash.push(idx);
+      });
+    }
+
+    if (JSON.stringify(newBoard) !== prev) {
+      board  = newBoard;
+      score += newScore;
+      elScore.textContent = score;
+      addTile();
+      render();
+      checkStageProgress();
+    }
+  }
+
+  function checkStageProgress() {
+    const maxTile = Math.max(...board);
+    const stage   = STAGES.slice().reverse().find(s => s.val <= maxTile);
+    if (!stage) return;
+
+    if (stage.val > currentStage) {
+      currentStage = stage.val;
+      elStageLbl.textContent = stage.label;
+      elStageMsg.textContent = stage.phrase;
+
+      if (stage.val === 2048) {
+        elOvSub.textContent = `Score: ${score}`;
+        setTimeout(() => elOverlay.classList.add('visible'), 1200);
+      } else {
+        elHand.textContent    = stage.phrase;
+        elHand.style.opacity  = '1';
+        pulses.push({ stage: stage.val, t: Date.now() });
+        setTimeout(() => { elHand.style.opacity = '0'; }, 2500);
+      }
+    }
+
+    // check game over
+    if (!canMove()) {
+      setTimeout(() => {
+        elOvSub.textContent = `Score: ${score} — ${stage.label} reached`;
+        elOverlay.classList.add('visible');
+      }, 400);
+    }
+  }
+
+  function canMove() {
+    if (board.includes(0)) return true;
+    for (let i = 0; i < SIZE; i++) {
+      for (let j = 0; j < SIZE; j++) {
+        const v = board[i * SIZE + j];
+        if (j < SIZE - 1 && board[i * SIZE + j + 1] === v) return true;
+        if (i < SIZE - 1 && board[(i + 1) * SIZE + j] === v) return true;
+      }
+    }
+    return false;
+  }
+
+  /* ── Input ───────────────────────────────────────────────── */
+  let touchStart = null;
+
+  document.addEventListener('keydown', e => {
+    const map = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+    if (map[e.key]) { e.preventDefault(); move(map[e.key]); }
+  });
+
+  document.addEventListener('touchstart', e => {
+    touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }, { passive: true });
+
+  document.addEventListener('touchend', e => {
+    if (!touchStart) return;
+    const dx = e.changedTouches[0].clientX - touchStart.x;
+    const dy = e.changedTouches[0].clientY - touchStart.y;
+    if (Math.abs(dx) < 20 && Math.abs(dy) < 20) return;
+    if (Math.abs(dx) > Math.abs(dy)) move(dx > 0 ? 'right' : 'left');
+    else move(dy > 0 ? 'down' : 'up');
+    touchStart = null;
+  });
+
+  restartBtn.addEventListener('click', () => {
+    elOverlay.classList.remove('visible');
+    init();
+  });
+
+  /* ── p5 merge burst ──────────────────────────────────────── */
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      init();
+      return;
+    }
+
+    let burstParticles = [];
+
+    const sketch = p => {
+      p.setup = () => {
+        const cnv = p.createCanvas(p.windowWidth, p.windowHeight);
+        cnv.parent('p5-host');
+      };
+
+      p.draw = () => {
+        p.clear();
+        for (let i = burstParticles.length - 1; i >= 0; i--) {
+          const pt = burstParticles[i];
+          pt.x += pt.vx; pt.y += pt.vy;
+          pt.alpha -= 5;
+          if (pt.alpha <= 0) { burstParticles.splice(i, 1); continue; }
+          p.fill(201, 168, 76, pt.alpha);
+          p.noStroke();
+          p.ellipse(pt.x, pt.y, 3);
+        }
+
+        // emit burst when merge flash exists
+        if (mergeFlash.length > 0) {
+          const grid  = elGrid.getBoundingClientRect();
+          const cSize = grid.width / SIZE;
+          mergeFlash.forEach(idx => {
+            const row = Math.floor(idx / SIZE);
+            const col = idx % SIZE;
+            const cx  = grid.left + col * cSize + cSize / 2;
+            const cy  = grid.top  + row * cSize + cSize / 2;
+            for (let j = 0; j < 8; j++) {
+              burstParticles.push({
+                x: cx, y: cy,
+                vx: p.random(-4, 4),
+                vy: p.random(-5, -1),
+                alpha: 160,
+              });
+            }
+          });
+        }
+      };
+      p.windowResized = () => p.resizeCanvas(p.windowWidth, p.windowHeight);
+    };
+
+    new p5(sketch);
+    init();
+  });
+</script>
+</body>
+</html>

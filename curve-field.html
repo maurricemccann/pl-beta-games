@@ -1,0 +1,233 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Curve Field — PL Beta Games</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    @font-face {
+      font-family: 'PLHand';
+      src: url('fonts/MaurriceMccannPsychedHandwrit-Regular.otf') format('opentype'),
+           url('fonts/MaurriceMccannPsychedHandwrit-Regular.ttf') format('truetype');
+      font-weight: 400; font-style: normal; font-display: swap;
+    }
+    :root { --gold:#B8861C; --gold-bright:#D4A830; --gold-dim:#7A5C14; --gold-muted:#9A7010; }
+    html, body { width:100%; height:100%; background:#F8F2E4; overflow:hidden; cursor:crosshair; }
+    #three-host { position:fixed; inset:0; }
+    .nav-bar { position:fixed; top:24px; left:24px; z-index:10; }
+    .nav-link { font-size:10px; letter-spacing:0.3em; color:var(--gold-dim); text-decoration:none; text-transform:uppercase; }
+    .nav-link:hover { color:var(--gold); }
+    #label { position:fixed; bottom:32px; left:50%; transform:translateX(-50%); z-index:10;
+      font-size:9px; letter-spacing:0.3em; text-transform:uppercase; color:var(--gold-dim); }
+    #plhand { position:fixed; bottom:72px; left:50%; transform:translateX(-50%); z-index:10;
+      font-family:'PLHand',cursive; font-size:clamp(18px,3.5vw,26px); color:var(--gold);
+      opacity:0; transition:opacity 0.8s; pointer-events:none; white-space:nowrap; }
+  
+    /* iOS touch — finger gestures drive the canvas, not the page */
+    html, body { overscroll-behavior: none; touch-action: none; }
+    canvas { touch-action: none; }
+  </style>
+  <!-- PL theme injection: reads accent/glyph from URL params or sessionStorage -->
+  <script id="pl-theme">
+  (function(){
+    function hexToRgb(h){h=h.replace(/^#/,'');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function clamp(v){return Math.max(0,Math.min(255,Math.round(v)));}
+    function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(x){return clamp(x).toString(16).padStart(2,'0')}).join('');}
+    function lighten(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]+(255-c[0])*pct,c[1]+(255-c[1])*pct,c[2]+(255-c[2])*pct);}
+    function darken(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]*(1-pct),c[1]*(1-pct),c[2]*(1-pct));}
+    function isHex(s){return /^#?[0-9a-fA-F]{6}$/.test(s);}
+    function applyAccent(accent){
+      var h=accent.startsWith('#')?accent:'#'+accent;
+      var el=document.documentElement;
+      el.style.setProperty('--gold',h);
+      el.style.setProperty('--gold-bright',lighten(h,0.18));
+      el.style.setProperty('--gold-light',lighten(h,0.14));
+      el.style.setProperty('--gold-dim',darken(h,0.25));
+      el.style.setProperty('--gold-muted',darken(h,0.12));
+    }
+    var params=new URLSearchParams(window.location.search);
+    var accent=params.get('accent')||'';
+    var glyph=params.get('glyph')||'';
+    if(accent&&isHex(accent)){
+      sessionStorage.setItem('pl_accent',accent);
+      applyAccent(accent);
+    } else {
+      var sa=sessionStorage.getItem('pl_accent');
+      if(sa&&isHex(sa)){applyAccent(sa);}
+    }
+    if(glyph){sessionStorage.setItem('pl_glyph',glyph);}
+    window.PL_GLYPH=glyph||sessionStorage.getItem('pl_glyph')||'';
+    function propagateLinks(){
+      var a=sessionStorage.getItem('pl_accent');
+      var g=sessionStorage.getItem('pl_glyph');
+      if(!a&&!g)return;
+      var links=document.querySelectorAll('a[href]');
+      links.forEach(function(el){
+        var href=el.getAttribute('href');
+        if(!href||href.startsWith('http')||href.startsWith('//')||href.startsWith('#'))return;
+        if(!href.endsWith('.html'))return;
+        if(el.dataset.plThemed)return;
+        el.dataset.plThemed='1';
+        var url=new URL(href,window.location.href);
+        if(a)url.searchParams.set('accent',a);
+        if(g)url.searchParams.set('glyph',g);
+        el.setAttribute('href',url.pathname.split('/').pop()+'?'+url.searchParams.toString());
+      });
+    }
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',propagateLinks);}else{propagateLinks();}
+  })();
+  </script><script src="pl-game-data.js"></script>
+<script src="pl-points.js" defer></script></head>
+<body>
+<div id="game-instructions" style="position:fixed;inset:0;background:#F8F2E4;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;font-family:'PLHand',cursive;">
+  <div style="max-width:500px;text-align:center;">
+    <p style="font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;">How to Play</p>
+    <h2 style="font-size:clamp(26px,4vw,40px);color:#0A0A0A;margin-bottom:20px;line-height:1.2;font-weight:400;">Curve Field</h2>
+    <p style="font-size:clamp(16px,2.5vw,20px);color:#3A3020;line-height:1.7;margin-bottom:36px;">The Curve is the signature mark of this practice. Draw it across the field. Watch the doctrine spread.</p>
+    <button id="begin-btn" style="font-family:'PLHand',cursive;font-size:20px;background:var(--gold);color:#F8F2E4;border:none;padding:14px 40px;cursor:pointer;letter-spacing:0.1em;">Begin</button>
+  </div>
+</div>
+<script>
+(function(){
+  var panel=document.getElementById('game-instructions');
+  if(!panel)return;
+  if(sessionStorage.getItem('pl_seen_'+location.pathname)){panel.style.display='none';return;}
+  document.getElementById('begin-btn').addEventListener('click',function(){
+    panel.style.display='none';
+    sessionStorage.setItem('pl_seen_'+location.pathname,'1');
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){panel.style.display='none';sessionStorage.setItem('pl_seen_'+location.pathname,'1');}
+  });
+})();
+</script>
+  <div id="three-host"></div>
+  <nav class="nav-bar"><a class="nav-link" href="index.html">← Games</a></nav>
+  <div id="label">Move to navigate · Click to mark a curve</div>
+  <div id="plhand">The curve governs.</div>
+
+<script>
+  const host   = document.getElementById('three-host');
+  const elHand = document.getElementById('plhand');
+
+  const scene    = new THREE.Scene();
+  scene.fog      = new THREE.Fog(0xF8F2E4, 200, 800);
+  const camera   = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setClearColor(0xF8F2E4, 1);
+  host.appendChild(renderer.domElement);
+
+  camera.position.set(0, 60, 200);
+  camera.lookAt(0, 0, 0);
+
+  // Ground grid
+  const gridHelper = new THREE.GridHelper(800, 40, 0xE8DFC8, 0xD8CDB0);
+  scene.add(gridHelper);
+
+  // Procedural Curve formations: bezier curves floating over the field
+  function makeCurveFormation(ox, oz, color, opacity = 0.7) {
+    const group = new THREE.Group();
+    const numCurves = 5 + Math.floor(Math.random() * 8);
+    for (let i = 0; i < numCurves; i++) {
+      const spread = 30 + Math.random() * 60;
+      const curve = new THREE.CubicBezierCurve3(
+        new THREE.Vector3(-spread + Math.random()*10, Math.random()*20, Math.random()*20),
+        new THREE.Vector3(-spread/3 + Math.random()*20, 20 + Math.random()*40, Math.random()*30),
+        new THREE.Vector3(spread/3 + Math.random()*20, 20 + Math.random()*40, Math.random()*30),
+        new THREE.Vector3(spread + Math.random()*10, Math.random()*20, Math.random()*20),
+      );
+      const pts = curve.getPoints(60);
+      const geo = new THREE.BufferGeometry().setFromPoints(pts);
+      const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: opacity * (0.4 + Math.random() * 0.6) });
+      const line = new THREE.Line(geo, mat);
+      line.position.y = 2 + i * 3;
+      group.add(line);
+    }
+    group.position.set(ox, 0, oz);
+    return group;
+  }
+
+  // Scatter curve formations across the field
+  const formations = [];
+  for (let i = 0; i < 24; i++) {
+    const x   = (Math.random() - 0.5) * 600;
+    const z   = (Math.random() - 0.5) * 600;
+    const col = [0xC9A84C, 0xB09040, 0xE8C860, 0x8B7336][i % 4];
+    const f   = makeCurveFormation(x, z, col, 0.3 + Math.random() * 0.4);
+    scene.add(f);
+    formations.push(f);
+  }
+
+  // Floating glyph particles
+  const glyphCount = 300;
+  const glyphPos   = new Float32Array(glyphCount * 3);
+  for (let i = 0; i < glyphCount; i++) {
+    glyphPos[i*3]   = (Math.random()-0.5) * 700;
+    glyphPos[i*3+1] = 5 + Math.random() * 80;
+    glyphPos[i*3+2] = (Math.random()-0.5) * 700;
+  }
+  const glyphGeo = new THREE.BufferGeometry();
+  glyphGeo.setAttribute('position', new THREE.BufferAttribute(glyphPos, 3));
+  const glyphMat = new THREE.PointsMaterial({ color: 0xB8861C, size: 2.6, transparent: true, opacity: 0.68 });
+  scene.add(new THREE.Points(glyphGeo, glyphMat));
+
+  // Camera fly
+  const mouse  = new THREE.Vector2();
+  let targetX  = 0, targetZ  = 0;
+  let velX     = 0, velZ     = 0;
+  let handShown = false;
+  let frame    = 0;
+
+  window.addEventListener('mousemove', e => {
+    mouse.x = (e.clientX / innerWidth - 0.5) * 2;
+    mouse.y = (e.clientY / innerHeight - 0.5) * 2;
+  });
+
+  renderer.domElement.addEventListener('click', () => {
+    // Spawn new formation near camera
+    const f = makeCurveFormation(camera.position.x + (Math.random()-0.5)*60, camera.position.z + (Math.random()-0.5)*60, 0xFFE890, 0.8);
+    scene.add(f);
+    formations.push(f);
+    if (!handShown) { handShown = true; elHand.style.opacity = '1'; setTimeout(() => { elHand.style.opacity = '0'; }, 3000); }
+  });
+
+  // Touch navigation
+  renderer.domElement.addEventListener('touchmove', e => {
+    mouse.x = (e.touches[0].clientX / innerWidth - 0.5) * 2;
+    mouse.y = (e.touches[0].clientY / innerHeight - 0.5) * 2;
+  }, { passive: true });
+
+  function animate() {
+    requestAnimationFrame(animate);
+    frame++;
+
+    // smooth camera steering
+    const targetCamX = camera.position.x + mouse.x * 1.5;
+    const targetCamZ = camera.position.z + 0.4;
+    camera.position.x += (targetCamX - camera.position.x) * 0.01;
+    camera.position.z += (targetCamZ - camera.position.z) * 0.01;
+    camera.position.x = Math.max(-300, Math.min(300, camera.position.x));
+    camera.position.z = Math.max(-300, Math.min(400, camera.position.z));
+    camera.lookAt(camera.position.x + mouse.x * 30, 20, camera.position.z - 80);
+
+    formations.forEach((f, i) => {
+      f.rotation.y += 0.001 * (i % 2 === 0 ? 1 : -1);
+    });
+
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+</script>
+</body>
+</html>

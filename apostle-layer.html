@@ -1,0 +1,219 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Apostle Layer — PL Beta Games</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    @font-face {
+      font-family: 'PLHand';
+      src: url('fonts/MaurriceMccannPsychedHandwrit-Regular.otf') format('opentype'),
+           url('fonts/MaurriceMccannPsychedHandwrit-Regular.ttf') format('truetype');
+      font-weight: 400; font-style: normal; font-display: swap;
+    }
+    :root { --void:#F0EAF8; --gold:#6B3FA8; --gold-dim:#4A2880; --bone:#0A0A0A; --ash:#7A6090; --border:#C4A8E8; }
+    html, body { width:100%; height:100%; background:var(--void); color:var(--bone); font-family:'PLHand',cursive; overflow:hidden; }
+    #p5-host { position:fixed; inset:0; z-index:0; pointer-events:none; }
+    #p5-host canvas { display:block; width:100%!important; height:100%!important; }
+    .page { position:fixed; inset:0; z-index:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; }
+    .nav-bar { position:fixed; top:24px; left:24px; z-index:10; }
+    .nav-link { font-size:10px; letter-spacing:0.3em; color:var(--ash); text-decoration:none; text-transform:uppercase; }
+    .nav-link:hover { color:var(--gold); }
+    #gate-section { text-align:center; max-width:480px; }
+    #lock-symbol { font-size:40px; color:var(--gold-dim); margin-bottom:24px; }
+    #gate-title { font-family:'Cormorant Garamond',serif; font-style:italic; font-size:clamp(20px,4vw,32px); color:var(--gold); margin-bottom:16px; }
+    #gate-msg { font-size:11px; line-height:1.8; color:var(--ash); letter-spacing:0.1em; margin-bottom:32px; }
+    .gate-row { display:flex; align-items:center; gap:12px; justify-content:center; margin-bottom:10px; }
+    .gate-dot { width:12px; height:12px; border-radius:50%; border:1px solid var(--border); }
+    .gate-dot.complete { background:rgba(201,168,76,0.6); border-color:var(--gold-dim); }
+    .gate-name { font-size:10px; letter-spacing:0.2em; text-transform:uppercase; }
+    .gate-name.complete { color:var(--gold-dim); }
+    .gate-name.incomplete { color:#222; }
+    #unlocked-section { text-align:center; max-width:540px; display:none; }
+    #unlocked-title { font-family:'Cormorant Garamond',serif; font-style:italic; font-size:clamp(20px,4vw,32px); color:var(--gold); margin-bottom:20px; }
+    #apostle-text { font-family:'Cormorant Garamond',serif; font-style:italic; font-size:clamp(14px,2.5vw,18px); color:var(--bone); line-height:1.7; margin-bottom:24px; }
+    #plhand { position:fixed; bottom:72px; left:50%; transform:translateX(-50%); z-index:10;
+      font-family:'PLHand',cursive; font-size:clamp(18px,3.5vw,26px); color:var(--gold);
+      opacity:0; transition:opacity 0.6s; pointer-events:none; white-space:nowrap; }
+  </style>
+  <!-- PL theme injection: reads accent/glyph from URL params or sessionStorage -->
+  <script id="pl-theme">
+  (function(){
+    function hexToRgb(h){h=h.replace(/^#/,'');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function clamp(v){return Math.max(0,Math.min(255,Math.round(v)));}
+    function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(x){return clamp(x).toString(16).padStart(2,'0')}).join('');}
+    function lighten(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]+(255-c[0])*pct,c[1]+(255-c[1])*pct,c[2]+(255-c[2])*pct);}
+    function darken(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]*(1-pct),c[1]*(1-pct),c[2]*(1-pct));}
+    function isHex(s){return /^#?[0-9a-fA-F]{6}$/.test(s);}
+    function applyAccent(accent){
+      var h=accent.startsWith('#')?accent:'#'+accent;
+      var el=document.documentElement;
+      el.style.setProperty('--gold',h);
+      el.style.setProperty('--gold-bright',lighten(h,0.18));
+      el.style.setProperty('--gold-light',lighten(h,0.14));
+      el.style.setProperty('--gold-dim',darken(h,0.25));
+      el.style.setProperty('--gold-muted',darken(h,0.12));
+    }
+    var params=new URLSearchParams(window.location.search);
+    var accent=params.get('accent')||'';
+    var glyph=params.get('glyph')||'';
+    if(accent&&isHex(accent)){
+      sessionStorage.setItem('pl_accent',accent);
+      applyAccent(accent);
+    } else {
+      var sa=sessionStorage.getItem('pl_accent');
+      if(sa&&isHex(sa)){applyAccent(sa);}
+    }
+    if(glyph){sessionStorage.setItem('pl_glyph',glyph);}
+    window.PL_GLYPH=glyph||sessionStorage.getItem('pl_glyph')||'';
+    function propagateLinks(){
+      var a=sessionStorage.getItem('pl_accent');
+      var g=sessionStorage.getItem('pl_glyph');
+      if(!a&&!g)return;
+      var links=document.querySelectorAll('a[href]');
+      links.forEach(function(el){
+        var href=el.getAttribute('href');
+        if(!href||href.startsWith('http')||href.startsWith('//')||href.startsWith('#'))return;
+        if(!href.endsWith('.html'))return;
+        if(el.dataset.plThemed)return;
+        el.dataset.plThemed='1';
+        var url=new URL(href,window.location.href);
+        if(a)url.searchParams.set('accent',a);
+        if(g)url.searchParams.set('glyph',g);
+        el.setAttribute('href',url.pathname.split('/').pop()+'?'+url.searchParams.toString());
+      });
+    }
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',propagateLinks);}else{propagateLinks();}
+  })();
+  </script><script src="pl-game-data.js"></script>
+<script src="pl-points.js" defer></script></head>
+<body>
+<div id="game-instructions" style="position:fixed;inset:0;background:#F0EAF8;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;font-family:'PLHand',cursive;">
+  <div style="max-width:500px;text-align:center;">
+    <p style="font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:#6B3FA8;margin-bottom:16px;">How to Play</p>
+    <h2 style="font-size:clamp(26px,4vw,40px);color:#0A0A0A;margin-bottom:20px;line-height:1.2;font-weight:400;">The Apostle Layer</h2>
+    <p style="font-size:clamp(16px,2.5vw,20px);color:#3A1880;line-height:1.7;margin-bottom:36px;">The doctrine spreads through those who carry it. Add your layer. Every apostle expands the architecture.</p>
+    <button id="begin-btn" style="font-family:'PLHand',cursive;font-size:20px;background:#6B3FA8;color:#F0EAF8;border:none;padding:14px 40px;cursor:pointer;letter-spacing:0.1em;">Begin</button>
+  </div>
+</div>
+<script>
+(function(){
+  var panel=document.getElementById('game-instructions');
+  if(!panel)return;
+  if(sessionStorage.getItem('pl_seen_'+location.pathname)){panel.style.display='none';return;}
+  document.getElementById('begin-btn').addEventListener('click',function(){
+    panel.style.display='none';
+    sessionStorage.setItem('pl_seen_'+location.pathname,'1');
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){panel.style.display='none';sessionStorage.setItem('pl_seen_'+location.pathname,'1');}
+  });
+})();
+</script>
+  <div id="p5-host"></div>
+  <nav class="nav-bar"><a class="nav-link" href="index.html">← Games</a></nav>
+  <div class="page">
+    <div id="gate-section">
+      <div id="lock-symbol">⊗</div>
+      <div id="gate-title">The Apostle Layer</div>
+      <div id="gate-msg">This layer is reserved for those who have completed the practice.<br>Three games must be finished before entry is granted.</div>
+      <div id="gate-checklist"></div>
+    </div>
+    <div id="unlocked-section">
+      <div id="unlocked-title">The Layer Is Open.</div>
+      <div id="apostle-text"></div>
+    </div>
+  </div>
+  <div id="plhand">Watch this.</div>
+
+<script>
+  /* ── Check which games are completed via localStorage ──────── */
+  const GATES = [
+    { key: 'pl_long_game',           game: 'long_game',           name: 'The Long Game',    check: s => (s.days && s.days.length >= 1)  },
+    { key: 'pl_law3',                game: 'law3',                name: 'Truth 3 Live',     check: s => (s.entries && s.entries.length >= 1) },
+    { key: 'pl_archive_restoration', game: 'archive_restoration', name: 'Archive Restored', check: s => (s.restored && s.restored.length >= 5) },
+  ];
+
+  const APOSTLE_TRANSMISSIONS = [
+    "You have returned more than once. That is the mark. The practice does not require understanding — it requires return.",
+    "The apostle is not the one who believes the loudest. It is the one who shows up when there is no reason to.",
+    "Three completions. That is evidence, not intention. The archive has recorded you. The congregation knows your frequency.",
+    "What you have persisted with is now structure. Not hope — architecture. You are building something that outlasts the conditions.",
+    "The Curve says: the pattern that returns most often is the one that wants to become permanent. You have returned. Welcome.",
+  ];
+
+  const elChecklist = document.getElementById('gate-checklist');
+  const elGate      = document.getElementById('gate-section');
+  const elUnlocked  = document.getElementById('unlocked-section');
+  const elApostleText = document.getElementById('apostle-text');
+  const elHand      = document.getElementById('plhand');
+
+  function checkGate(g) {
+    try {
+      const raw = localStorage.getItem(g.key);
+      if (!raw) return false;
+      return g.check(JSON.parse(raw));
+    } catch { return false; }
+  }
+
+  let results = GATES.map(g => ({ ...g, done: checkGate(g) }));
+
+  function renderChecklist() {
+    elChecklist.innerHTML = '';
+    results.forEach(r => {
+      const row = document.createElement('div');
+      row.className = 'gate-row';
+      row.innerHTML = `<div class="gate-dot ${r.done ? 'complete' : ''}"></div>
+        <div class="gate-name ${r.done ? 'complete' : 'incomplete'}">${r.name}</div>`;
+      elChecklist.appendChild(row);
+    });
+  }
+
+  function openLayer() {
+    if (elUnlocked.style.display === 'block') return;
+    elGate.style.display = 'none';
+    elUnlocked.style.display = 'block';
+    elApostleText.textContent = APOSTLE_TRANSMISSIONS[Math.floor(Math.random() * APOSTLE_TRANSMISSIONS.length)];
+    elHand.style.opacity = '1';
+    setTimeout(() => { elHand.style.opacity = '0'; }, 4000);
+  }
+
+  renderChecklist();
+  if (results.every(r => r.done)) openLayer();
+
+  /* ── cross-device: re-check each unmet gate against D1 when signed in ── */
+  if (window.PLGames && PLGames.signedIn && PLGames.signedIn()) {
+    Promise.all(results.map(r =>
+      r.done
+        ? Promise.resolve(r)
+        : PLGames.load(r.game).then(remote => ({ ...r, done: remote ? !!r.check(remote) : r.done })).catch(() => r)
+    )).then(merged => {
+      results = merged;
+      renderChecklist();
+      if (results.every(r => r.done)) openLayer();
+    });
+  }
+
+  /* ── p5 ambient ── */
+  const sketch = p => {
+    let pts = [];
+    p.setup = () => { const cnv = p.createCanvas(p.windowWidth, p.windowHeight); cnv.parent('p5-host'); pts = Array.from({length:20},()=>({x:p.random(p.windowWidth),y:p.random(p.windowHeight),vx:p.random(-0.3,0.3),vy:p.random(-0.3,0.3)})); };
+    p.draw = () => {
+      p.clear();
+      const a = results.every(r => r.done) ? 30 : 8;
+      pts.forEach(pt => {
+        pt.x+=pt.vx; pt.y+=pt.vy;
+        if(pt.x<0||pt.x>p.windowWidth) pt.vx*=-1;
+        if(pt.y<0||pt.y>p.windowHeight) pt.vy*=-1;
+        p.fill(201,168,76,a); p.noStroke(); p.ellipse(pt.x,pt.y,2);
+      });
+    };
+    p.windowResized = () => p.resizeCanvas(p.windowWidth, p.windowHeight);
+  };
+  document.addEventListener('DOMContentLoaded', () => { new p5(sketch); });
+</script>
+</body>
+</html>

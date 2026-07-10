@@ -1,0 +1,605 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Oracle Game — PL Beta Games</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @font-face {
+      font-family: 'PLHand';
+      src: url('fonts/MaurriceMccannPsychedHandwrit-Regular.otf') format('opentype'),
+           url('fonts/MaurriceMccannPsychedHandwrit-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --void: #F8F2E4;
+      --gold: #B8861C;
+      --gold-dim: #7A5C14;
+      --gold-muted: #9A7020;
+      --bone: #0A0A0A;
+      --ash: #3A3020;
+      --border: #D4AF6A;
+      --btn-bg: #EDE5CE;
+    }
+
+    html, body {
+      width: 100%; min-height: 100%;
+      background: var(--void);
+      color: var(--bone);
+      font-family: 'PLHand', cursive;
+      overflow-x: hidden;
+      user-select: none;
+    }
+
+    #p5-host {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+    #p5-host canvas { display: block; width: 100% !important; height: 100% !important; }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 24px 120px;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    .nav-bar {
+      position: fixed;
+      top: 24px; left: 24px;
+      z-index: 10;
+    }
+    .nav-link {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      color: var(--ash);
+      text-decoration: none;
+      text-transform: uppercase;
+    }
+    .nav-link:hover { color: var(--gold); }
+
+    #depth-strip {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      font-size: 9px;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      color: var(--gold-dim);
+    }
+    #depth-strip strong { color: var(--gold); font-weight: 300; }
+
+    #oracle-eye {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      border: 1px solid var(--gold-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 32px;
+      font-size: 28px;
+      color: var(--gold);
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    #oracle-eye.active {
+      border-color: var(--gold);
+      box-shadow: 0 0 20px rgba(201,168,76,0.15);
+    }
+
+    #oracle-text {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-style: italic;
+      font-size: clamp(15px, 2.5vw, 20px);
+      line-height: 1.7;
+      color: var(--bone);
+      text-align: center;
+      margin-bottom: 40px;
+      min-height: 80px;
+      letter-spacing: 0.03em;
+    }
+
+    #choices {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .choice-btn {
+      padding: 14px 20px;
+      background: var(--btn-bg);
+      border: 1px solid var(--border);
+      color: var(--bone);
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+      line-height: 1.5;
+    }
+    .choice-btn:hover {
+      border-color: var(--gold-dim);
+      color: var(--gold);
+      background: rgba(201,168,76,0.04);
+    }
+
+    #loading-msg {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--ash);
+      margin-bottom: 20px;
+      height: 16px;
+    }
+
+    #path-trace {
+      font-size: 9px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--gold-dim);
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    #plhand-end {
+      position: fixed;
+      bottom: 72px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      font-family: 'PLHand', cursive;
+      font-size: clamp(18px, 3.5vw, 26px);
+      color: var(--gold);
+      opacity: 0;
+      transition: opacity 0.6s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    #ask-bar {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      max-width: 480px;
+      margin-top: 28px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(212,175,106,0.25);
+    }
+    #ask-input {
+      flex: 1;
+      padding: 13px 16px;
+      background: var(--btn-bg);
+      border: 1px solid var(--border);
+      color: var(--bone);
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-style: italic;
+      font-size: 15px;
+      letter-spacing: 0.02em;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    #ask-input::placeholder { color: var(--ash); opacity: 0.7; }
+    #ask-input:focus { border-color: var(--gold); }
+    #ask-btn {
+      padding: 0 22px;
+      background: var(--gold);
+      border: 1px solid var(--gold);
+      color: var(--void);
+      font-family: 'PLHand', cursive;
+      font-size: 16px;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    #ask-btn:hover { opacity: 0.85; }
+    #ask-btn:disabled { opacity: 0.4; cursor: default; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; }
+      #p5-host { display: none; }
+    }
+  </style>
+  <!-- PL theme injection: reads accent/glyph from URL params or sessionStorage -->
+  <script id="pl-theme">
+  (function(){
+    function hexToRgb(h){h=h.replace(/^#/,'');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function clamp(v){return Math.max(0,Math.min(255,Math.round(v)));}
+    function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(x){return clamp(x).toString(16).padStart(2,'0')}).join('');}
+    function lighten(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]+(255-c[0])*pct,c[1]+(255-c[1])*pct,c[2]+(255-c[2])*pct);}
+    function darken(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]*(1-pct),c[1]*(1-pct),c[2]*(1-pct));}
+    function isHex(s){return /^#?[0-9a-fA-F]{6}$/.test(s);}
+    function applyAccent(accent){
+      var h=accent.startsWith('#')?accent:'#'+accent;
+      var el=document.documentElement;
+      el.style.setProperty('--gold',h);
+      el.style.setProperty('--gold-bright',lighten(h,0.18));
+      el.style.setProperty('--gold-light',lighten(h,0.14));
+      el.style.setProperty('--gold-dim',darken(h,0.25));
+      el.style.setProperty('--gold-muted',darken(h,0.12));
+    }
+    var params=new URLSearchParams(window.location.search);
+    var accent=params.get('accent')||'';
+    var glyph=params.get('glyph')||'';
+    if(accent&&isHex(accent)){
+      sessionStorage.setItem('pl_accent',accent);
+      applyAccent(accent);
+    } else {
+      var sa=sessionStorage.getItem('pl_accent');
+      if(sa&&isHex(sa)){applyAccent(sa);}
+    }
+    if(glyph){sessionStorage.setItem('pl_glyph',glyph);}
+    window.PL_GLYPH=glyph||sessionStorage.getItem('pl_glyph')||'';
+    function propagateLinks(){
+      var a=sessionStorage.getItem('pl_accent');
+      var g=sessionStorage.getItem('pl_glyph');
+      if(!a&&!g)return;
+      var links=document.querySelectorAll('a[href]');
+      links.forEach(function(el){
+        var href=el.getAttribute('href');
+        if(!href||href.startsWith('http')||href.startsWith('//')||href.startsWith('#'))return;
+        if(!href.endsWith('.html'))return;
+        if(el.dataset.plThemed)return;
+        el.dataset.plThemed='1';
+        var url=new URL(href,window.location.href);
+        if(a)url.searchParams.set('accent',a);
+        if(g)url.searchParams.set('glyph',g);
+        el.setAttribute('href',url.pathname.split('/').pop()+'?'+url.searchParams.toString());
+      });
+    }
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',propagateLinks);}else{propagateLinks();}
+  })();
+  </script><script src="pl-game-data.js"></script>
+<script src="pl-points.js" defer></script></head>
+<body>
+<div id="game-instructions" style="position:fixed;inset:0;background:#F8F2E4;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;font-family:'PLHand',cursive;">
+  <div style="max-width:500px;text-align:center;">
+    <p style="font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:#B8861C;margin-bottom:16px;">How to Play</p>
+    <h2 style="font-size:clamp(26px,4vw,40px);color:#0A0A0A;margin-bottom:20px;line-height:1.2;font-weight:400;">The Oracle</h2>
+    <p style="font-size:clamp(16px,2.5vw,20px);color:#3A3020;line-height:1.7;margin-bottom:36px;">The archive knows. Ask it. The oracle speaks from seven years of accumulated signal. The answer is already written.</p>
+    <button id="begin-btn" style="font-family:'PLHand',cursive;font-size:20px;background:#B8861C;color:#F8F2E4;border:none;padding:14px 40px;cursor:pointer;letter-spacing:0.1em;">Begin</button>
+  </div>
+</div>
+<script>
+(function(){
+  var panel=document.getElementById('game-instructions');
+  if(!panel)return;
+  if(sessionStorage.getItem('pl_seen_'+location.pathname)){panel.style.display='none';return;}
+  document.getElementById('begin-btn').addEventListener('click',function(){
+    panel.style.display='none';
+    sessionStorage.setItem('pl_seen_'+location.pathname,'1');
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){panel.style.display='none';sessionStorage.setItem('pl_seen_'+location.pathname,'1');}
+  });
+})();
+</script>
+
+  <div id="p5-host"></div>
+
+  <nav class="nav-bar">
+    <a class="nav-link" href="index.html">← Games</a>
+  </nav>
+
+  <div id="depth-strip">Depth: <strong id="depthNum">0</strong> / 5</div>
+
+  <div class="page">
+    <div id="oracle-eye">◉</div>
+    <div id="loading-msg">The Oracle speaks.</div>
+    <div id="path-trace"></div>
+    <div id="oracle-text"></div>
+    <div id="choices"></div>
+    <div id="ask-bar">
+      <input id="ask-input" type="text" placeholder="Ask the archive directly…" autocomplete="off" maxlength="200" />
+      <button id="ask-btn">Ask</button>
+    </div>
+  </div>
+
+  <div id="plhand-end">Watch this.</div>
+
+<script>
+  /* ── Oracle paths (5 deep, branching) ───────────────────── */
+  const PATHS = {
+    root: {
+      text: "The practice began on April 29th, 2019. A piece of chalk. A curve remembered from childhood. What called you here?",
+      choices: [
+        { label: "I came to understand the practice.",   next: 'practice' },
+        { label: "I came to understand the archive.",    next: 'archive'  },
+        { label: "I came to understand the self.",       next: 'self'     },
+      ]
+    },
+    practice: {
+      text: "Seven years. No days off. The practice is not a habit — it is the structure of the self. What do you carry when you practice?",
+      choices: [
+        { label: "Intention — I know what I am building.",  next: 'practice_intention' },
+        { label: "Doubt — I practice despite it.",          next: 'practice_doubt'     },
+        { label: "Rhythm — The body knows the way.",        next: 'practice_rhythm'    },
+      ]
+    },
+    archive: {
+      text: "1,768 pieces catalogued. 90% governed by the Curve. The archive is not a record — it is a proof. What does a seven-year proof mean?",
+      choices: [
+        { label: "It means the practice is real.",       next: 'archive_real'      },
+        { label: "It means the self persists.",          next: 'archive_persist'   },
+        { label: "It means the world will remember.",   next: 'archive_world'     },
+      ]
+    },
+    self: {
+      text: "Before the practice: living day to day, no direction, no sense of what came next. After: a catalog, a brand, a philosophy. What changed?",
+      choices: [
+        { label: "The decision to produce regardless.", next: 'self_produce'  },
+        { label: "The belief that the curve matters.",  next: 'self_curve'    },
+        { label: "The refusal to let reality be set by others.", next: 'self_refuse' },
+      ]
+    },
+    practice_intention: {
+      text: "Intention is a coordinate. Precision creates miracles. The Oracle reads: you build with clarity. What will you build?",
+      choices: [
+        { label: "A world that answers my frequency.",  next: 'terminus_law2' },
+        { label: "A body of work that outlasts me.",    next: 'terminus_archive' },
+      ]
+    },
+    practice_doubt: {
+      text: "Despite the conditions. The curve was drawn in spite. The Oracle reads: you know the practice is the answer to doubt, not its opposite.",
+      choices: [
+        { label: "The practice is how I persist.",     next: 'terminus_law3' },
+        { label: "Doubt is just interference.",        next: 'terminus_practice' },
+      ]
+    },
+    practice_rhythm: {
+      text: "The body holds the pattern when the mind forgets. The lineage — chalk, ink, marker, paint — each a rhythm returned to.",
+      choices: [
+        { label: "The hand knows what the mind denies.", next: 'terminus_curve' },
+        { label: "I will return to the practice today.", next: 'terminus_return' },
+      ]
+    },
+    archive_real: {
+      text: "Proof that this exists. That was the mission from the beginning. The Oracle has read the archive. It confirms: this is real.",
+      choices: [
+        { label: "Then I prepare for what comes next.",  next: 'terminus_law1' },
+        { label: "Then I tell everyone.",                next: 'terminus_signal' },
+      ]
+    },
+    archive_persist: {
+      text: "What persists in the mind becomes reality. The archive persists. Maurrice persists. The curve persists. What do you persist with?",
+      choices: [
+        { label: "The belief that my work matters.",   next: 'terminus_law3' },
+        { label: "The practice, one more day.",        next: 'terminus_practice' },
+      ]
+    },
+    archive_world: {
+      text: "The minute I picked up that chalk I knew my curves would cover the world. The Oracle confirms: the archive is moving.",
+      choices: [
+        { label: "Prepared for luxury.",               next: 'terminus_law1' },
+        { label: "In control of this reality.",        next: 'terminus_law2' },
+      ]
+    },
+    self_produce: {
+      text: "Produce uncontrollably. Expand in spite. The Oracle recognizes this pattern — it is the engine of the entire catalog.",
+      choices: [
+        { label: "I will produce again today.",        next: 'terminus_practice' },
+        { label: "The production IS the philosophy.",  next: 'terminus_curve' },
+      ]
+    },
+    self_curve: {
+      text: "Three curves that look like a rose. The first tag. Still true today. The Oracle says: the curve was the signal from the beginning.",
+      choices: [
+        { label: "Follow the signal.",                 next: 'terminus_signal' },
+        { label: "The curve will cover everything.",   next: 'terminus_curve' },
+      ]
+    },
+    self_refuse: {
+      text: "You are in control of your reality. Not the conditions. Not the doubters. Not the default settings. The Oracle agrees.",
+      choices: [
+        { label: "Replace the default settings.",      next: 'terminus_law2' },
+        { label: "What persists in my mind is mine.",  next: 'terminus_law3' },
+      ]
+    },
+    terminus_law1: { text: "Prepared for luxury. The Oracle closes. The first truth is yours.", choices: null, final: true },
+    terminus_law2: { text: "You are in control of your reality. The Oracle closes. The second truth is yours.", choices: null, final: true },
+    terminus_law3: { text: "What persists in the mind becomes your reality. The Oracle closes. The third truth is yours.", choices: null, final: true },
+    terminus_archive: { text: "The archive will outlast the conditions. The practice guarantees it. The Oracle has read the signal.", choices: null, final: true },
+    terminus_curve: { text: "The Curve is the governing law. Not preference — law. The Oracle confirms what the hand already knew.", choices: null, final: true },
+    terminus_practice: { text: "Return to the practice. That is the answer the Oracle always gives. Go make something.", choices: null, final: true },
+    terminus_signal: { text: "The signal is broadcasting. The Oracle closes. Your frequency is the transmission. Watch this.", choices: null, final: true },
+    terminus_return: { text: "Begin again. That is all the Oracle knows. The practice is the return. The return is the practice.", choices: null, final: true },
+  };
+
+  /* ── State ───────────────────────────────────────────────── */
+  let depth     = 0;
+  let pathTrace = [];
+  let pulses    = [];
+  let seq       = 0;   // generation guard: a newer action invalidates older async renders
+
+  const elDepth   = document.getElementById('depthNum');
+  const elEye     = document.getElementById('oracle-eye');
+  const elLoading = document.getElementById('loading-msg');
+  const elPath    = document.getElementById('path-trace');
+  const elText    = document.getElementById('oracle-text');
+  const elChoices = document.getElementById('choices');
+  const elHand    = document.getElementById('plhand-end');
+  const elAsk     = document.getElementById('ask-input');
+  const elAskBtn  = document.getElementById('ask-btn');
+
+  /* ── Navigate ────────────────────────────────────────────── */
+  function goTo(key) {
+    const node = PATHS[key];
+    if (!node) return;
+
+    const my = ++seq;
+    depth++;
+    elDepth.textContent = Math.min(depth, 5);
+    elEye.classList.add('active');
+    elLoading.textContent = 'The Oracle reads…';
+    elText.textContent = '';
+    elChoices.innerHTML = '';
+    elPath.textContent = pathTrace.join(' → ');
+
+    pulses.push({ t: Date.now() });
+
+    setTimeout(() => {
+      if (my !== seq) return;   // a live ask (or newer nav) superseded this render
+      elLoading.textContent = '';
+      elText.textContent    = node.text;
+      elEye.classList.remove('active');
+
+      if (node.final) {
+        elHand.style.opacity = '1';
+        setTimeout(() => {
+          elHand.style.opacity = '0';
+          // reset after reading
+          setTimeout(() => {
+            depth = 0;
+            pathTrace = [];
+            elDepth.textContent = 0;
+            elPath.textContent = '';
+            goTo('root');
+          }, 3000);
+        }, 3000);
+        return;
+      }
+
+      if (node.choices) {
+        node.choices.forEach(c => {
+          const btn = document.createElement('button');
+          btn.className   = 'choice-btn';
+          btn.textContent = c.label;
+          btn.addEventListener('click', () => {
+            pathTrace.push(c.label.split(' ').slice(0, 3).join(' ') + '…');
+            goTo(c.next);
+          });
+          elChoices.appendChild(btn);
+        });
+      }
+    }, 800);
+  }
+
+  /* ── Live ask — the archive answers directly (RAG via PLGames.oracle) ── */
+  let asking = false;
+  function askLive() {
+    const q = elAsk.value.trim();
+    if (!q || asking || !window.PLGames) return;
+    asking = true;
+    elAskBtn.disabled = true;
+    elAsk.blur();
+
+    const my = ++seq;   // supersede any pending root/nav render
+    depth = Math.min(depth + 1, 5);
+    elDepth.textContent = depth;
+    elEye.classList.add('active');
+    elLoading.textContent = 'The Oracle reads the archive…';
+    elText.textContent = '';
+    elChoices.innerHTML = '';
+    elPath.textContent = '“' + q.slice(0, 48).toUpperCase() + (q.length > 48 ? '…' : '') + '”';
+    pulses.push({ t: Date.now() });
+
+    PLGames.oracle(q).then(ans => {
+      asking = false;
+      elAskBtn.disabled = false;
+      if (my !== seq) return;   // user navigated away while the archive was reading
+      elLoading.textContent = '';
+      elEye.classList.remove('active');
+      const clean = (ans || '').trim();
+      elText.textContent = clean ||
+        "The archive is silent on this. The answer is in the making, not the asking — return to the practice.";
+      elAsk.value = '';
+      pulses.push({ t: Date.now() });
+
+      const btn = document.createElement('button');
+      btn.className   = 'choice-btn';
+      btn.textContent = 'Walk the path instead →';
+      btn.addEventListener('click', () => {
+        depth = 0; pathTrace = [];
+        elDepth.textContent = 0; elPath.textContent = '';
+        goTo('root');
+      });
+      elChoices.appendChild(btn);
+    });
+  }
+
+  /* ── p5 ambient ──────────────────────────────────────────── */
+  document.addEventListener('DOMContentLoaded', () => {
+    elAskBtn.addEventListener('click', askLive);
+    elAsk.addEventListener('keydown', e => { if (e.key === 'Enter') askLive(); });
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      goTo('root'); return;
+    }
+
+    const sketch = p => {
+      let particles = [];
+
+      p.setup = () => {
+        const cnv = p.createCanvas(p.windowWidth, p.windowHeight);
+        cnv.parent('p5-host');
+      };
+
+      p.draw = () => {
+        p.clear();
+
+        // consume pulses
+        while (pulses.length > 0) {
+          pulses.pop();
+          const cx = p.windowWidth / 2;
+          const cy = p.windowHeight / 2;
+          for (let i = 0; i < 20; i++) {
+            const angle = p.random(p.TWO_PI);
+            const speed = p.random(1, 4);
+            particles.push({
+              x: cx, y: cy,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed,
+              alpha: 120,
+              r: p.random(2, 5),
+            });
+          }
+        }
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const pt = particles[i];
+          pt.x += pt.vx; pt.y += pt.vy;
+          pt.alpha -= 3;
+          if (pt.alpha <= 0) { particles.splice(i, 1); continue; }
+          p.fill(201, 168, 76, pt.alpha);
+          p.noStroke();
+          p.ellipse(pt.x, pt.y, pt.r);
+        }
+
+        // slow orbit ring
+        const t   = p.frameCount * 0.005;
+        const cx  = p.windowWidth / 2;
+        const cy  = p.windowHeight / 2;
+        const r   = 50;
+        p.stroke(201, 168, 76, 12);
+        p.strokeWeight(1);
+        p.noFill();
+        p.ellipse(cx, cy, r * 2 + Math.sin(t) * 4, r * 2 + Math.cos(t) * 4);
+      };
+
+      p.windowResized = () => p.resizeCanvas(p.windowWidth, p.windowHeight);
+    };
+
+    new p5(sketch);
+    goTo('root');
+  });
+</script>
+</body>
+</html>

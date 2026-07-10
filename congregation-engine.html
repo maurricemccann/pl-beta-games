@@ -1,0 +1,266 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Congregation Engine — PL Beta Games</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    @font-face {
+      font-family: 'PLHand';
+      src: url('fonts/MaurriceMccannPsychedHandwrit-Regular.otf') format('opentype'),
+           url('fonts/MaurriceMccannPsychedHandwrit-Regular.ttf') format('truetype');
+      font-weight: 400; font-style: normal; font-display: swap;
+    }
+    :root { --void:#F8F2E4; --gold:#B8861C; --gold-dim:#7A5C14; --bone:#0A0A0A; --ash:#3A3020; --border:#D4AF6A; }
+    html, body { width: 100%; min-height: 100%; background: var(--void); color: var(--bone); font-family: 'PLHand', cursive; }
+    #p5-host { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+    #p5-host canvas { display: block; width: 100% !important; height: 100% !important; }
+    .page { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 80px 24px 120px; max-width: 700px; margin: 0 auto; }
+    .nav-bar { position: fixed; top: 24px; left: 24px; z-index: 10; }
+    .nav-link { font-size: 10px; letter-spacing: 0.3em; color: var(--ash); text-decoration: none; text-transform: uppercase; }
+    .nav-link:hover { color: var(--gold); }
+    #count-strip { position: fixed; top: 24px; left: 50%; transform: translateX(-50%); z-index: 10;
+      font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: var(--gold-dim); }
+    #count-strip strong { color: var(--gold); font-weight: 300; }
+    #philosophy-input { width: 100%; max-width: 540px; background: #EDE5CE; border: 1px solid var(--border);
+      color: var(--bone); font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 17px;
+      padding: 16px; outline: none; resize: none; margin-bottom: 12px; }
+    #philosophy-input:focus { border-color: var(--gold-dim); }
+    #philosophy-input::placeholder { color: var(--ash); }
+    #submit-row { display: flex; gap: 10px; margin-bottom: 32px; width: 100%; max-width: 540px; }
+    .btn { padding: 10px 20px; background: #EDE5CE; border: 1px solid var(--gold-dim); color: var(--gold);
+      font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; cursor: pointer; }
+    .btn:hover { border-color: var(--gold); }
+    #feed { width: 100%; max-width: 540px; display: flex; flex-direction: column; gap: 0; }
+    .feed-entry { border: 1px solid var(--border); border-top: none; padding: 16px 20px; }
+    .feed-entry:first-child { border-top: 1px solid var(--border); }
+    .feed-name { font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--gold-dim); margin-bottom: 8px; }
+    .feed-text { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 16px; color: var(--bone); line-height: 1.5; }
+    .feed-time { font-size: 9px; color: #333; margin-top: 6px; letter-spacing: 0.2em; }
+    #plhand { position: fixed; bottom: 72px; left: 50%; transform: translateX(-50%); z-index: 10;
+      font-family: 'PLHand', cursive; font-size: clamp(18px,3.5vw,26px); color: var(--gold);
+      opacity: 0; transition: opacity 0.6s; pointer-events: none; white-space: nowrap; }
+  </style>
+  <!-- PL theme injection: reads accent/glyph from URL params or sessionStorage -->
+  <script id="pl-theme">
+  (function(){
+    function hexToRgb(h){h=h.replace(/^#/,'');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function clamp(v){return Math.max(0,Math.min(255,Math.round(v)));}
+    function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(x){return clamp(x).toString(16).padStart(2,'0')}).join('');}
+    function lighten(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]+(255-c[0])*pct,c[1]+(255-c[1])*pct,c[2]+(255-c[2])*pct);}
+    function darken(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]*(1-pct),c[1]*(1-pct),c[2]*(1-pct));}
+    function isHex(s){return /^#?[0-9a-fA-F]{6}$/.test(s);}
+    function applyAccent(accent){
+      var h=accent.startsWith('#')?accent:'#'+accent;
+      var el=document.documentElement;
+      el.style.setProperty('--gold',h);
+      el.style.setProperty('--gold-bright',lighten(h,0.18));
+      el.style.setProperty('--gold-light',lighten(h,0.14));
+      el.style.setProperty('--gold-dim',darken(h,0.25));
+      el.style.setProperty('--gold-muted',darken(h,0.12));
+    }
+    var params=new URLSearchParams(window.location.search);
+    var accent=params.get('accent')||'';
+    var glyph=params.get('glyph')||'';
+    if(accent&&isHex(accent)){
+      sessionStorage.setItem('pl_accent',accent);
+      applyAccent(accent);
+    } else {
+      var sa=sessionStorage.getItem('pl_accent');
+      if(sa&&isHex(sa)){applyAccent(sa);}
+    }
+    if(glyph){sessionStorage.setItem('pl_glyph',glyph);}
+    window.PL_GLYPH=glyph||sessionStorage.getItem('pl_glyph')||'';
+    function propagateLinks(){
+      var a=sessionStorage.getItem('pl_accent');
+      var g=sessionStorage.getItem('pl_glyph');
+      if(!a&&!g)return;
+      var links=document.querySelectorAll('a[href]');
+      links.forEach(function(el){
+        var href=el.getAttribute('href');
+        if(!href||href.startsWith('http')||href.startsWith('//')||href.startsWith('#'))return;
+        if(!href.endsWith('.html'))return;
+        if(el.dataset.plThemed)return;
+        el.dataset.plThemed='1';
+        var url=new URL(href,window.location.href);
+        if(a)url.searchParams.set('accent',a);
+        if(g)url.searchParams.set('glyph',g);
+        el.setAttribute('href',url.pathname.split('/').pop()+'?'+url.searchParams.toString());
+      });
+    }
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',propagateLinks);}else{propagateLinks();}
+  })();
+  </script><script src="pl-game-data.js"></script>
+<script src="pl-points.js" defer></script></head>
+<body>
+<div id="game-instructions" style="position:fixed;inset:0;background:#F8F2E4;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;font-family:'PLHand',cursive;">
+  <div style="max-width:500px;text-align:center;">
+    <p style="font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;">How to Play</p>
+    <h2 style="font-size:clamp(26px,4vw,40px);color:#0A0A0A;margin-bottom:20px;line-height:1.2;font-weight:400;">Congregation Engine</h2>
+    <p style="font-size:clamp(16px,2.5vw,20px);color:#3A3020;line-height:1.7;margin-bottom:36px;">The field is made of those who carry the doctrine. Add your voice. The engine runs on shared frequency.</p>
+    <button id="begin-btn" style="font-family:'PLHand',cursive;font-size:20px;background:var(--gold);color:#F8F2E4;border:none;padding:14px 40px;cursor:pointer;letter-spacing:0.1em;">Begin</button>
+  </div>
+</div>
+<script>
+(function(){
+  var panel=document.getElementById('game-instructions');
+  if(!panel)return;
+  if(sessionStorage.getItem('pl_seen_'+location.pathname)){panel.style.display='none';return;}
+  document.getElementById('begin-btn').addEventListener('click',function(){
+    panel.style.display='none';
+    sessionStorage.setItem('pl_seen_'+location.pathname,'1');
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){panel.style.display='none';sessionStorage.setItem('pl_seen_'+location.pathname,'1');}
+  });
+})();
+</script>
+  <div id="p5-host"></div>
+  <nav class="nav-bar"><a class="nav-link" href="index.html">← Games</a></nav>
+  <div id="count-strip">Transmissions: <strong id="countNum">0</strong></div>
+  <div class="page">
+    <textarea id="philosophy-input" rows="3" placeholder="Speak a doctrine. Name a truth. Transmit." maxlength="280"></textarea>
+    <div id="submit-row">
+      <input id="name-input" style="flex:1;background:#EDE5CE;border:1px solid #D4AF6A;color:#0A0A0A;font-size:11px;padding:8px 12px;outline:none;" placeholder="Your signal name" maxlength="24">
+      <button class="btn" id="submitBtn">Transmit</button>
+    </div>
+    <div id="feed"></div>
+  </div>
+  <div id="plhand">The congregation resonates.</div>
+
+<script>
+  const SEED_TRANSMISSIONS = [
+    { name: 'Curve',       text: 'The practice began with a piece of chalk. One curve. April 29th, 2019.' },
+    { name: 'Archive',     text: '1,768 pieces. 90% governed by the Curve. The archive is the proof.' },
+    { name: 'Persistence', text: 'Seven years without a single day off. Not motivation — law.' },
+    { name: 'Signal',      text: 'The frequency is broadcasting. The congregation forms around it.' },
+    { name: 'Control',     text: 'You are in control of your reality. Not the conditions. Not the doubters.' },
+    { name: 'Preparation', text: 'Prepared for luxury means the conditions were being set long before you named the goal.' },
+    { name: 'Congregation',text: 'We are not waiting for permission. We are producing despite.' },
+  ];
+
+  const KEY = 'pl_congregation_feed';
+  const GAME = 'congregation_feed';
+  const SIGNALS = ['Curve','Signal','Archive','Persistence','Control','Preparation','Frequency','Alignment'];
+  function load() { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; } }
+  function save(f) {
+    try { localStorage.setItem(KEY, JSON.stringify(f.slice(-40))); } catch {}
+    if (window.PLGames) {                         // persist only the member's own voice, across devices
+      const mine = f.filter(e => e.mine).slice(-20);
+      if (mine.length) PLGames.save(GAME, mine);
+    }
+  }
+
+  let feed = load();
+
+  const elFeed   = document.getElementById('feed');
+  const elCount  = document.getElementById('countNum');
+  const elHand   = document.getElementById('plhand');
+  const elText   = document.getElementById('philosophy-input');
+  const elName   = document.getElementById('name-input');
+  const submitBtn = document.getElementById('submitBtn');
+  let handShown  = false;
+  let pulses     = [];
+
+  function timeAgo(t) {
+    const s = Math.floor((Date.now() - t) / 1000);
+    if (s < 60) return `${s}s ago`;
+    if (s < 3600) return `${Math.floor(s/60)}m ago`;
+    return `${Math.floor(s/3600)}h ago`;
+  }
+
+  function renderFeed() {
+    elFeed.innerHTML = '';
+    elCount.textContent = feed.length;
+    [...feed].reverse().slice(0, 20).forEach(entry => {
+      const el = document.createElement('div');
+      el.className = 'feed-entry';
+      el.innerHTML = `<div class="feed-name">${entry.name || 'Anonymous'}</div>
+        <div class="feed-text">${entry.text}</div>
+        <div class="feed-time">${timeAgo(entry.t)}</div>`;
+      elFeed.appendChild(el);
+    });
+  }
+
+  function transmit() {
+    const text = elText.value.trim();
+    if (!text) return;
+    const name = elName.value.trim() || 'Anonymous';
+    feed.push({ name, text, t: Date.now(), mine: true });
+    save(feed);
+    elText.value = '';
+    renderFeed();
+    pulses.push(1);
+    if (!handShown && feed.length > 7) { handShown = true; elHand.style.opacity = '1'; setTimeout(() => { elHand.style.opacity = '0'; }, 3000); }
+  }
+
+  submitBtn.addEventListener('click', transmit);
+  elText.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); transmit(); } });
+
+  renderFeed();
+  hydrate();
+
+  /* ── ground the field in the live brand corpus, then restore the member's own voice ── */
+  async function hydrate() {
+    // 1. seed an empty feed from real, voice-clean seeds + the live archive count
+    if (feed.length === 0) {
+      let built = [];
+      if (window.PLGames) {
+        try {
+          const [seedRows, pieces] = await Promise.all([PLGames.seeds(8), PLGames.loadArchive()]);
+          const n = (pieces || []).length;
+          if (n) built.push({ name: 'Archive', text: n.toLocaleString() + ' pieces in the archive. The archive is the proof.', t: Date.now() - 9 * 120000 });
+          (seedRows || []).forEach((s, i) => {
+            const phrase = s && s.phrase ? String(s.phrase).trim() : '';
+            if (phrase) built.push({ name: SIGNALS[i % SIGNALS.length], text: phrase, t: Date.now() - (8 - i) * 120000 });
+          });
+        } catch (_) {}
+      }
+      if (!built.length) built = SEED_TRANSMISSIONS.map((e, i) => ({ ...e, t: Date.now() - (SEED_TRANSMISSIONS.length - i) * 120000 }));
+      feed = built;
+      save(feed);
+      renderFeed();
+    }
+    // 2. restore the member's own transmissions from D1 (cross-device presence)
+    if (window.PLGames && PLGames.signedIn()) {
+      try {
+        const mine = await PLGames.load(GAME);
+        if (Array.isArray(mine) && mine.length) {
+          const seen = new Set(feed.map(e => e.t));
+          mine.forEach(e => { if (e && !seen.has(e.t)) { feed.push({ ...e, mine: true }); seen.add(e.t); } });
+          feed.sort((a, b) => a.t - b.t);
+          feed = feed.slice(-40);
+          save(feed);
+          renderFeed();
+        }
+      } catch (_) {}
+    }
+  }
+
+  const sketch = p => {
+    p.setup = () => { const cnv = p.createCanvas(p.windowWidth, p.windowHeight); cnv.parent('p5-host'); };
+    let particles = [];
+    p.draw = () => {
+      p.clear();
+      while (pulses.length > 0) {
+        pulses.pop();
+        for (let i = 0; i < 25; i++) {
+          const a = p.random(p.TWO_PI);
+          particles.push({ x: p.windowWidth/2, y: p.windowHeight/2, vx: Math.cos(a)*p.random(2,6), vy: Math.sin(a)*p.random(2,6), alpha: 150 });
+        }
+      }
+      for (let i = particles.length-1; i >= 0; i--) {
+        const pt = particles[i]; pt.x += pt.vx; pt.y += pt.vy; pt.alpha -= 5;
+        if (pt.alpha <= 0) { particles.splice(i,1); continue; }
+        p.fill(201,168,76,pt.alpha); p.noStroke(); p.ellipse(pt.x,pt.y,3);
+      }
+    };
+    p.windowResized = () => p.resizeCanvas(p.windowWidth, p.windowHeight);
+  };
+  document.addEventListener('DOMContentLoaded', () => { new p5(sketch); });
+</script>
+</body>
+</html>

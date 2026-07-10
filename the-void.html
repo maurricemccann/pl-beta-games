@@ -1,0 +1,703 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Void — PL Beta Games</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js" defer></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    @font-face {
+      font-family: 'PLHand';
+      src: url('fonts/MaurriceMccannPsychedHandwrit-Regular.otf') format('opentype'),
+           url('fonts/MaurriceMccannPsychedHandwrit-Regular.ttf') format('truetype');
+      font-weight: 400; font-style: normal; font-display: swap;
+    }
+
+    :root {
+      --void: #050505;          /* the void is black */
+      --gold: #9B6FD8;          /* violet accent — brightened to read on black */
+      --gold-dim: #6B4A9E;      /* mid violet for labels */
+      --bone: #F0EAF8;          /* primary text — light lavender-white */
+      --ash: #8A7AA0;           /* muted lavender-gray */
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: var(--void);
+      overflow: hidden;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: 'PLHand', cursive;
+      color: var(--bone);
+      user-select: none;
+    }
+
+    .back {
+      position: fixed;
+      top: 24px;
+      left: 32px;
+      font-family: 'PLHand', cursive;
+      font-size: 10px;
+      letter-spacing: 0.35em;
+      color: var(--gold-dim);
+      text-decoration: none;
+      text-transform: uppercase;
+      transition: color 0.3s;
+      z-index: 100;
+    }
+    .back:hover { color: var(--gold); }
+
+    /* P5 BG layer */
+    #p5-host {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+    #p5-host canvas { display: block; width: 100% !important; height: 100% !important; }
+
+    /* Original canvas — for center glow */
+    canvas#cvs {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Scenes */
+    .scene {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      padding: 40px;
+      z-index: 10;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 1.2s ease;
+      text-align: center;
+    }
+
+    .scene.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .enter-label {
+      font-family: 'PLHand', cursive;
+      font-size: 10px;
+      letter-spacing: 0.6em;
+      color: var(--gold-dim);
+      text-transform: uppercase;
+    }
+
+    .enter-prompt {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(20px, 5vw, 38px);
+      color: var(--bone);
+      line-height: 1.4;
+      letter-spacing: 0.04em;
+    }
+
+    .enter-sub {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(13px, 2vw, 17px);
+      color: var(--ash);
+      max-width: 360px;
+    }
+
+    .btn {
+      background: transparent;
+      border: 1px solid var(--gold-dim);
+      color: var(--gold);
+      font-family: 'PLHand', cursive;
+      font-size: 14px;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      padding: 16px 40px;
+      min-height: 48px;
+      cursor: pointer;
+      transition: border-color 0.25s, color 0.25s, background 0.25s;
+      margin-top: 8px;
+    }
+    .btn:active { background: rgba(107,63,168,0.07); }
+    .btn:hover { border-color: var(--gold); color: var(--bone); }
+
+    .void-text {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(14px, 3vw, 22px);
+      color: var(--ash);
+      letter-spacing: 0.06em;
+    }
+
+    .question-headline {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(28px, 8vw, 64px);
+      color: var(--bone);
+      letter-spacing: 0.06em;
+    }
+
+    .choose-label {
+      font-family: 'PLHand', cursive;
+      font-size: 10px;
+      letter-spacing: 0.5em;
+      color: var(--gold-dim);
+      text-transform: uppercase;
+    }
+
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1px;
+      max-width: 640px;
+      width: 100%;
+      background: #2A1B45;
+    }
+
+    .category-card {
+      background: #0F0A1A;
+      padding: 32px 24px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      transition: background 0.2s, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .category-card:hover { background: #181028; transform: translateY(-3px); }
+
+    .cat-icon {
+      font-family: 'PLHand', cursive;
+      font-size: 32px;
+      color: var(--gold-dim);
+    }
+
+    .cat-name {
+      font-family: 'PLHand', cursive;
+      font-size: 18px;
+      color: var(--bone);
+      letter-spacing: 0.08em;
+    }
+
+    .cat-desc {
+      font-family: 'PLHand', cursive;
+      font-size: 13px;
+      color: var(--ash);
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    .seeds-label {
+      font-family: 'PLHand', cursive;
+      font-size: 10px;
+      letter-spacing: 0.5em;
+      color: var(--gold-dim);
+      text-transform: uppercase;
+    }
+
+    .seeds-category {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(20px, 4vw, 32px);
+      color: var(--gold);
+      letter-spacing: 0.06em;
+    }
+
+    .seeds-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      width: 100%;
+      max-width: 560px;
+    }
+
+    .seed-option {
+      background: #0F0A1A;
+      border: 1px solid #2A1B45;
+      border-left: 2px solid transparent;
+      padding: 18px 24px;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.2s, border-left-color 0.2s, transform 0.2s;
+    }
+    .seed-option:hover { background: #181028; border-left-color: var(--gold); transform: translateX(4px); }
+
+    .seed-option-title {
+      font-family: 'PLHand', cursive;
+      font-size: 14px;
+      color: var(--gold-dim);
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+
+    .seed-option-text {
+      font-family: 'PLHand', cursive;
+      font-size: 16px;
+      color: var(--bone);
+      line-height: 1.4;
+    }
+
+    .hold-label {
+      font-family: 'PLHand', cursive;
+      font-size: 9px;
+      letter-spacing: 0.6em;
+      color: var(--gold-dim);
+      text-transform: uppercase;
+    }
+
+    .hold-phrase {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(22px, 5vw, 44px);
+      color: var(--bone);
+      line-height: 1.3;
+      letter-spacing: 0.04em;
+      max-width: 560px;
+    }
+
+    .hold-timer-wrap {
+      width: 200px;
+      height: 1px;
+      background: #2A1B45;
+      position: relative;
+      overflow: visible;
+    }
+
+    .hold-timer-bar {
+      position: absolute;
+      left: 0; top: 0;
+      height: 1px;
+      background: var(--gold);
+      width: 0;
+    }
+
+    .hold-seconds {
+      font-family: 'PLHand', cursive;
+      font-size: 14px;
+      color: var(--ash);
+      letter-spacing: 0.1em;
+      margin-top: 8px;
+    }
+
+    .hold-sub {
+      font-family: 'PLHand', cursive;
+      font-size: 14px;
+      color: var(--ash);
+    }
+
+    .sealed-label {
+      font-family: 'PLHand', cursive;
+      font-size: 9px;
+      letter-spacing: 0.6em;
+      color: var(--gold-dim);
+      text-transform: uppercase;
+    }
+
+    .sealed-phrase {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(18px, 4vw, 36px);
+      color: var(--gold);
+      line-height: 1.4;
+      letter-spacing: 0.04em;
+      max-width: 520px;
+      animation: sealPulse 2s ease forwards;
+    }
+
+    @keyframes sealPulse {
+      0%   { text-shadow: 0 0 20px rgba(107,63,168,0.1); }
+      50%  { text-shadow: 0 0 60px rgba(107,63,168,0.4), 0 0 120px rgba(107,63,168,0.15); }
+      100% { text-shadow: 0 0 40px rgba(107,63,168,0.3); }
+    }
+
+    .sealed-declaration {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(13px, 2vw, 18px);
+      color: var(--bone);
+      line-height: 1.5;
+      max-width: 400px;
+    }
+
+    .sealed-law {
+      font-family: 'PLHand', cursive;
+      font-size: 10px;
+      letter-spacing: 0.4em;
+      color: var(--gold-dim);
+      text-transform: uppercase;
+    }
+
+    :focus-visible { outline: 2px solid var(--gold-dim); outline-offset: 4px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      #p5-host { display: none; }
+    }
+  </style>
+  <!-- PL theme injection: reads accent/glyph from URL params or sessionStorage -->
+  <script id="pl-theme">
+  (function(){
+    function hexToRgb(h){h=h.replace(/^#/,'');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function clamp(v){return Math.max(0,Math.min(255,Math.round(v)));}
+    function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(x){return clamp(x).toString(16).padStart(2,'0')}).join('');}
+    function lighten(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]+(255-c[0])*pct,c[1]+(255-c[1])*pct,c[2]+(255-c[2])*pct);}
+    function darken(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]*(1-pct),c[1]*(1-pct),c[2]*(1-pct));}
+    function isHex(s){return /^#?[0-9a-fA-F]{6}$/.test(s);}
+    function applyAccent(accent){
+      var h=accent.startsWith('#')?accent:'#'+accent;
+      var el=document.documentElement;
+      el.style.setProperty('--gold',h);
+      el.style.setProperty('--gold-bright',lighten(h,0.18));
+      el.style.setProperty('--gold-light',lighten(h,0.14));
+      el.style.setProperty('--gold-dim',darken(h,0.25));
+      el.style.setProperty('--gold-muted',darken(h,0.12));
+    }
+    var params=new URLSearchParams(window.location.search);
+    var accent=params.get('accent')||'';
+    var glyph=params.get('glyph')||'';
+    if(accent&&isHex(accent)){
+      sessionStorage.setItem('pl_accent',accent);
+      applyAccent(accent);
+    } else {
+      var sa=sessionStorage.getItem('pl_accent');
+      if(sa&&isHex(sa)){applyAccent(sa);}
+    }
+    if(glyph){sessionStorage.setItem('pl_glyph',glyph);}
+    window.PL_GLYPH=glyph||sessionStorage.getItem('pl_glyph')||'';
+    function propagateLinks(){
+      var a=sessionStorage.getItem('pl_accent');
+      var g=sessionStorage.getItem('pl_glyph');
+      if(!a&&!g)return;
+      var links=document.querySelectorAll('a[href]');
+      links.forEach(function(el){
+        var href=el.getAttribute('href');
+        if(!href||href.startsWith('http')||href.startsWith('//')||href.startsWith('#'))return;
+        if(!href.endsWith('.html'))return;
+        if(el.dataset.plThemed)return;
+        el.dataset.plThemed='1';
+        var url=new URL(href,window.location.href);
+        if(a)url.searchParams.set('accent',a);
+        if(g)url.searchParams.set('glyph',g);
+        el.setAttribute('href',url.pathname.split('/').pop()+'?'+url.searchParams.toString());
+      });
+    }
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',propagateLinks);}else{propagateLinks();}
+  })();
+  </script><script src="pl-game-data.js"></script>
+<script src="pl-points.js" defer></script></head>
+<body>
+<div id="game-instructions" style="position:fixed;inset:0;z-index:1000;background:#050505;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center;">
+  <p style="font-family:'PLHand',cursive;font-size:9px;letter-spacing:0.5em;text-transform:uppercase;color:#9B6FD8;margin-bottom:16px;">How to Play</p>
+  <h2 style="font-family:'PLHand',cursive;font-size:clamp(28px,6vw,52px);color:#F0EAF8;font-weight:400;margin-bottom:20px;">The Void</h2>
+  <p style="font-family:'PLHand',cursive;font-size:clamp(14px,2vw,18px);color:#B6A8D0;max-width:480px;line-height:1.7;margin-bottom:32px;">Select your domain and hold your intention for 30 seconds. The void responds to what you hold. Do not rush the holding. Prepared for luxury.</p>
+  <button id="begin-btn" style="font-family:'PLHand',cursive;font-size:12px;letter-spacing:0.4em;text-transform:uppercase;padding:16px 40px;background:transparent;border:1px solid #6B4A9E;color:#9B6FD8;cursor:pointer;">Begin</button>
+</div>
+
+<a class="back" href="index.html">← Games</a>
+
+<div id="p5-host"></div>
+<canvas id="cvs"></canvas>
+
+<!-- Scene 1: Enter -->
+<div class="scene active" id="sceneEnter">
+  <p class="enter-label">The Practice</p>
+  <p class="enter-prompt">You came from the void.<br>You return to it — deliberately.</p>
+  <p class="enter-sub">This is where intention is chosen. Where clarity is found before the world gets loud.</p>
+  <button class="btn" id="enterBtn">Enter the Void</button>
+</div>
+
+<!-- Scene 2: The Void -->
+<div class="scene" id="sceneVoid">
+  <p class="void-text">You are in the void.</p>
+</div>
+
+<!-- Scene 3: The Question -->
+<div class="scene" id="sceneQuestion">
+  <p class="question-headline">What do you want?</p>
+</div>
+
+<!-- Scene 4: Choose a domain -->
+<div class="scene" id="sceneChoose">
+  <p class="choose-label">Choose a domain</p>
+  <div class="category-grid">
+    <div class="category-card" data-cat="abundance">
+      <div class="cat-icon">◈</div>
+      <div class="cat-name">Abundance</div>
+      <p class="cat-desc">Wealth. Resources. What flows toward you.</p>
+    </div>
+    <div class="category-card" data-cat="clarity">
+      <div class="cat-icon">◉</div>
+      <div class="cat-name">Clarity</div>
+      <p class="cat-desc">Identity. Direction. What you are becoming.</p>
+    </div>
+    <div class="category-card" data-cat="sovereignty">
+      <div class="cat-icon">◎</div>
+      <div class="cat-name">Sovereignty</div>
+      <p class="cat-desc">Control. Authority. What you are commanding.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Scene 5: Choose a seed -->
+<div class="scene" id="sceneSeeds">
+  <p class="seeds-label">Choose one</p>
+  <p class="seeds-category" id="seedCatLabel">Abundance</p>
+  <div class="seeds-list" id="seedsList"></div>
+</div>
+
+<!-- Scene 6: Hold it -->
+<div class="scene" id="sceneHold">
+  <p class="hold-label">Hold this for 30 seconds</p>
+  <p class="hold-phrase" id="holdPhrase"></p>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:8px;">
+    <div class="hold-timer-wrap">
+      <div class="hold-timer-bar" id="holdTimerBar"></div>
+    </div>
+    <p class="hold-seconds" id="holdSeconds">30</p>
+  </div>
+  <p class="hold-sub">Let it take up space.</p>
+</div>
+
+<!-- Scene 7: Sealed -->
+<div class="scene" id="sceneSealed">
+  <p class="sealed-label">Sealed</p>
+  <p class="sealed-phrase" id="sealedPhrase"></p>
+  <p class="sealed-declaration">This is what you chose to hold.<br>Now it belongs to you.</p>
+  <p class="sealed-law">What persists in the mind becomes your reality.</p>
+  <button class="btn" id="sealAgainBtn" style="margin-top:8px">Choose Again</button>
+</div>
+
+<script>
+  const CATEGORY_SEEDS = {
+    abundance: [
+      { title: 'Wealth Signal',       text: 'Broadcast the frequency that money recognizes' },
+      { title: 'Abundance Identity',  text: "You're not chasing wealth — you're remembering it" },
+      { title: 'Luxury Mindset',      text: 'Think in gold. Act in inevitability' },
+      { title: 'Prepared Abundance',  text: 'The universe delivers to those who are ready' },
+      { title: 'Quantum Opulence',    text: 'Wealth is a vibration. Tune in' },
+    ],
+    clarity: [
+      { title: 'Manifested Identity', text: 'Become the person your dreams report to' },
+      { title: 'Luxury Vision',       text: 'See your future in high resolution' },
+      { title: 'Precise Clarity',     text: 'Precision creates miracles' },
+      { title: 'Quantum Becoming',    text: 'Transform at the speed of belief' },
+      { title: 'Psyched Identity',    text: 'Become the luxury you seek' },
+    ],
+    sovereignty: [
+      { title: 'Manifest Authority',  text: "Command your timeline like it's already yours" },
+      { title: 'Psyched Sovereignty', text: 'You are the monarch of your timeline' },
+      { title: 'Reality Override',    text: 'Replace the default settings with your own' },
+      { title: 'Reality Command',     text: 'Speak your desires into structure' },
+      { title: 'Quantum Confidence',  text: 'Act like the universe already said yes' },
+    ],
+  };
+
+  /* ── P5 dot field + match pulse ──────────────────────────────── */
+  let matchPulse = { active: false, t: 0 };
+  function triggerMatchPulse() {
+    matchPulse = { active: true, t: 0 };
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const sketch = p => {
+      const dots = [];
+
+      p.setup = () => {
+        p.createCanvas(p.windowWidth, p.windowHeight).parent('p5-host');
+        p.noStroke();
+        for (let i = 0; i < 70; i++) {
+          dots.push({
+            x: p.random(p.width),
+            y: p.random(p.height),
+            vx: p.random(-0.15, 0.15),
+            vy: p.random(-0.1, 0.1),
+            r: p.random(1, 2),
+            alpha: p.random(0.10, 0.22),
+          });
+        }
+      };
+
+      p.draw = () => {
+        p.clear();
+
+        // Bone dots
+        dots.forEach(d => {
+          d.x += d.vx;
+          d.y += d.vy;
+          if (d.x < 0) d.x = p.width;
+          if (d.x > p.width) d.x = 0;
+          if (d.y < 0) d.y = p.height;
+          if (d.y > p.height) d.y = 0;
+          p.fill(155, 111, 216, d.alpha * 255);
+          p.circle(d.x, d.y, d.r * 2);
+        });
+
+        // Match pulse
+        if (matchPulse.active) {
+          matchPulse.t++;
+          const progress = matchPulse.t / 30;
+          const r = progress * 120;
+          const a = 0.15 * (1 - progress);
+          p.noFill();
+          p.stroke(155, 111, 216, a * 255);
+          p.strokeWeight(1.5);
+          p.circle(p.width / 2, p.height / 2, r * 2);
+          p.noStroke();
+          if (matchPulse.t >= 30) matchPulse.active = false;
+        }
+      };
+
+      p.windowResized = () => p.resizeCanvas(p.windowWidth, p.windowHeight);
+    };
+
+    new p5(sketch);
+  });
+
+  /* ── Original glow canvas ────────────────────────────────────── */
+  const canvas = document.getElementById('cvs');
+  const ctx = canvas.getContext('2d');
+
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+
+  let glowIntensity = 0;
+
+  function animGlow() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (glowIntensity > 0) {
+      const cx = canvas.width / 2, cy = canvas.height / 2;
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.min(canvas.width, canvas.height) * 0.5);
+      grad.addColorStop(0, `rgba(155, 111, 216, ${glowIntensity * 0.14})`);
+      grad.addColorStop(1, 'transparent');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    requestAnimationFrame(animGlow);
+  }
+
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+  animGlow();
+
+  /* ── Scene management ────────────────────────────────────────── */
+  function goTo(id, delay = 0) {
+    setTimeout(() => {
+      document.querySelectorAll('.scene').forEach(s => {
+        s.classList.remove('active');
+        s.style.pointerEvents = 'none';
+      });
+      const target = document.getElementById(id);
+      target.classList.add('active');
+    }, delay);
+  }
+
+  document.getElementById('enterBtn').addEventListener('click', () => {
+    goTo('sceneVoid', 0);
+    goTo('sceneQuestion', 3000);
+    goTo('sceneChoose', 5500);
+  });
+
+  document.querySelectorAll('.category-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const cat = card.dataset.cat;
+      populateSeeds(cat);
+      goTo('sceneSeeds');
+    });
+  });
+
+  function populateSeeds(cat) {
+    const labels = { abundance: 'Abundance', clarity: 'Clarity', sovereignty: 'Sovereignty' };
+    document.getElementById('seedCatLabel').textContent = labels[cat];
+    const list = document.getElementById('seedsList');
+    list.innerHTML = '';
+    CATEGORY_SEEDS[cat].forEach(seed => {
+      const opt = document.createElement('div');
+      opt.className = 'seed-option';
+      opt.innerHTML = `<div class="seed-option-title">${seed.title}</div><div class="seed-option-text">${seed.text}</div>`;
+      opt.addEventListener('click', () => startHold(seed.text));
+      list.appendChild(opt);
+    });
+  }
+
+  let holdInterval = null;
+
+  function startHold(phrase) {
+    document.getElementById('holdPhrase').textContent = phrase;
+    document.getElementById('holdSeconds').textContent = '30';
+    document.getElementById('holdTimerBar').style.transition = 'none';
+    document.getElementById('holdTimerBar').style.width = '0';
+    goTo('sceneHold');
+
+    glowIntensity = 0;
+    clearInterval(holdInterval);
+
+    let elapsed = 0;
+    const total = 30;
+
+    setTimeout(() => {
+      document.getElementById('holdTimerBar').style.transition = `width ${total}s linear`;
+      document.getElementById('holdTimerBar').style.width = '200px';
+    }, 100);
+
+    holdInterval = setInterval(() => {
+      elapsed++;
+      glowIntensity = elapsed / total;
+      const remaining = total - elapsed;
+      document.getElementById('holdSeconds').textContent = remaining > 0 ? remaining : '—';
+
+      if (elapsed >= total) {
+        clearInterval(holdInterval);
+        seal(phrase);
+      }
+    }, 1000);
+  }
+
+  function seal(phrase) {
+    document.getElementById('sealedPhrase').textContent = phrase;
+    try {
+      const intentions = JSON.parse(localStorage.getItem('pl_intentions') || '[]');
+      intentions.unshift({ phrase, sealed: new Date().toISOString() });
+      if (intentions.length > 7) intentions.pop();
+      localStorage.setItem('pl_intentions', JSON.stringify(intentions));
+    } catch(e) {}
+    glowIntensity = 1;
+    triggerMatchPulse();
+    goTo('sceneSealed');
+  }
+
+  document.getElementById('sealAgainBtn').addEventListener('click', () => {
+    clearInterval(holdInterval);
+    glowIntensity = 0;
+    goTo('sceneEnter');
+  });
+
+  (function() {
+    const panel = document.getElementById('game-instructions');
+    if (!panel) return;
+    if (sessionStorage.getItem('pl_instructions_seen_' + location.pathname)) { panel.style.display = 'none'; return; }
+    document.getElementById('begin-btn').addEventListener('click', function() {
+      panel.style.display = 'none';
+      sessionStorage.setItem('pl_instructions_seen_' + location.pathname, '1');
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { panel.style.display = 'none'; sessionStorage.setItem('pl_instructions_seen_' + location.pathname, '1'); }
+    });
+  })();
+</script>
+</body>
+</html>

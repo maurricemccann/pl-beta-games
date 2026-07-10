@@ -1,0 +1,578 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preparation — PL Beta Games</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @font-face {
+      font-family: 'PLHand';
+      src: url('fonts/MaurriceMccannPsychedHandwrit-Regular.otf') format('opentype'),
+           url('fonts/MaurriceMccannPsychedHandwrit-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --void: #F8F2E4;
+      --gold: #B8861C;
+      --gold-bright: #D4A830;
+      --gold-dim: #7A5C14;
+      --gold-muted: #9A7020;
+      --bone: #0A0A0A;
+      --ash: #3A3020;
+      --border: #D4AF6A;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--void);
+      color: var(--bone);
+      font-family: 'PLHand', cursive;
+      overflow: hidden;
+    }
+
+    #p5-host {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      cursor: crosshair;
+    }
+    #p5-host canvas { display: block; width: 100% !important; height: 100% !important; }
+
+    .nav-bar {
+      position: fixed;
+      top: 24px; left: 24px;
+      z-index: 10;
+    }
+    .nav-link {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      color: var(--ash);
+      text-decoration: none;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .nav-link:hover { color: var(--gold); }
+
+    #round-display {
+      position: fixed;
+      top: 26px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      font-size: 9px;
+      letter-spacing: 0.45em;
+      color: var(--gold-dim);
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    #instruction {
+      position: fixed;
+      bottom: 72px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      text-align: center;
+      pointer-events: none;
+      transition: opacity 0.5s;
+    }
+    .inst-main {
+      font-size: 11px;
+      letter-spacing: 0.25em;
+      color: var(--ash);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .inst-sub {
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      color: var(--gold-dim);
+      text-transform: uppercase;
+    }
+
+    #score-display {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      text-align: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.35s;
+    }
+    .score-dev {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: clamp(36px, 7vw, 68px);
+      font-weight: 300;
+      color: var(--gold);
+      letter-spacing: 0.08em;
+      line-height: 1;
+    }
+    .score-quality {
+      font-size: 9px;
+      letter-spacing: 0.45em;
+      color: var(--ash);
+      text-transform: uppercase;
+      margin-top: 10px;
+    }
+    .score-principle {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 14px;
+      font-weight: 300;
+      font-style: italic;
+      color: var(--gold-dim);
+      max-width: 360px;
+      line-height: 1.75;
+      margin-top: 28px;
+    }
+    #missed-flash {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      font-size: 10px;
+      letter-spacing: 0.4em;
+      color: var(--ash);
+      text-transform: uppercase;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    #plhand-moment {
+      position: fixed;
+      bottom: 72px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 11;
+      font-family: 'PLHand', cursive;
+      font-size: clamp(20px, 3.5vw, 28px);
+      color: var(--gold);
+      letter-spacing: 0.05em;
+      text-align: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.6s;
+      white-space: nowrap;
+    }
+
+    #final-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      background: rgba(8, 8, 8, 0.96);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.9s;
+    }
+    #final-overlay.visible { opacity: 1; pointer-events: auto; }
+
+    .final-label {
+      font-size: 9px;
+      letter-spacing: 0.55em;
+      color: var(--gold-dim);
+      text-transform: uppercase;
+    }
+    .final-number {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: clamp(64px, 14vw, 120px);
+      font-weight: 300;
+      color: var(--bone);
+      letter-spacing: 0.05em;
+      line-height: 1;
+    }
+    .final-denom {
+      font-size: 11px;
+      letter-spacing: 0.4em;
+      color: var(--ash);
+      text-transform: uppercase;
+      margin-top: -8px;
+    }
+    .final-rounds {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 4px;
+    }
+    .final-round-chip {
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      color: var(--ash);
+    }
+    .final-round-chip.hit { border-color: var(--gold-dim); color: var(--gold); }
+    .final-round-chip.perfect { border-color: var(--gold); color: var(--gold-bright); }
+    .final-declaration {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(18px, 3.5vw, 26px);
+      color: var(--gold);
+      letter-spacing: 0.05em;
+      margin-top: 8px;
+    }
+    .final-again {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      color: var(--ash);
+      text-transform: uppercase;
+      cursor: pointer;
+      padding: 8px;
+      transition: color 0.2s;
+    }
+    .final-again:hover { color: var(--gold); }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; }
+    }
+  </style>
+  <!-- PL theme injection: reads accent/glyph from URL params or sessionStorage -->
+  <script id="pl-theme">
+  (function(){
+    function hexToRgb(h){h=h.replace(/^#/,'');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function clamp(v){return Math.max(0,Math.min(255,Math.round(v)));}
+    function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(x){return clamp(x).toString(16).padStart(2,'0')}).join('');}
+    function lighten(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]+(255-c[0])*pct,c[1]+(255-c[1])*pct,c[2]+(255-c[2])*pct);}
+    function darken(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]*(1-pct),c[1]*(1-pct),c[2]*(1-pct));}
+    function isHex(s){return /^#?[0-9a-fA-F]{6}$/.test(s);}
+    function applyAccent(accent){
+      var h=accent.startsWith('#')?accent:'#'+accent;
+      var el=document.documentElement;
+      el.style.setProperty('--gold',h);
+      el.style.setProperty('--gold-bright',lighten(h,0.18));
+      el.style.setProperty('--gold-light',lighten(h,0.14));
+      el.style.setProperty('--gold-dim',darken(h,0.25));
+      el.style.setProperty('--gold-muted',darken(h,0.12));
+    }
+    var params=new URLSearchParams(window.location.search);
+    var accent=params.get('accent')||'';
+    var glyph=params.get('glyph')||'';
+    if(accent&&isHex(accent)){
+      sessionStorage.setItem('pl_accent',accent);
+      applyAccent(accent);
+    } else {
+      var sa=sessionStorage.getItem('pl_accent');
+      if(sa&&isHex(sa)){applyAccent(sa);}
+    }
+    if(glyph){sessionStorage.setItem('pl_glyph',glyph);}
+    window.PL_GLYPH=glyph||sessionStorage.getItem('pl_glyph')||'';
+    function propagateLinks(){
+      var a=sessionStorage.getItem('pl_accent');
+      var g=sessionStorage.getItem('pl_glyph');
+      if(!a&&!g)return;
+      var links=document.querySelectorAll('a[href]');
+      links.forEach(function(el){
+        var href=el.getAttribute('href');
+        if(!href||href.startsWith('http')||href.startsWith('//')||href.startsWith('#'))return;
+        if(!href.endsWith('.html'))return;
+        if(el.dataset.plThemed)return;
+        el.dataset.plThemed='1';
+        var url=new URL(href,window.location.href);
+        if(a)url.searchParams.set('accent',a);
+        if(g)url.searchParams.set('glyph',g);
+        el.setAttribute('href',url.pathname.split('/').pop()+'?'+url.searchParams.toString());
+      });
+    }
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',propagateLinks);}else{propagateLinks();}
+  })();
+  </script><script src="pl-game-data.js"></script>
+<script src="pl-points.js" defer></script></head>
+<body>
+<div id="game-instructions" style="position:fixed;inset:0;background:#F8F2E4;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;font-family:'PLHand',cursive;">
+  <div style="max-width:500px;text-align:center;">
+    <p style="font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:#B8861C;margin-bottom:16px;">How to Play</p>
+    <h2 style="font-size:clamp(26px,4vw,40px);color:#0A0A0A;margin-bottom:20px;line-height:1.2;font-weight:400;">Preparation</h2>
+    <p style="font-size:clamp(16px,2.5vw,20px);color:#3A3020;line-height:1.7;margin-bottom:36px;">Set your mind before the session. Each symbol is a door. Enter deliberately. The preparation is the practice.</p>
+    <button id="begin-btn" style="font-family:'PLHand',cursive;font-size:20px;background:#B8861C;color:#F8F2E4;border:none;padding:14px 40px;cursor:pointer;letter-spacing:0.1em;">Begin</button>
+  </div>
+</div>
+<script>
+(function(){
+  var panel=document.getElementById('game-instructions');
+  if(!panel)return;
+  if(sessionStorage.getItem('pl_seen_'+location.pathname)){panel.style.display='none';return;}
+  document.getElementById('begin-btn').addEventListener('click',function(){
+    panel.style.display='none';
+    sessionStorage.setItem('pl_seen_'+location.pathname,'1');
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){panel.style.display='none';sessionStorage.setItem('pl_seen_'+location.pathname,'1');}
+  });
+})();
+</script>
+
+  <div id="p5-host"></div>
+
+  <nav class="nav-bar">
+    <a class="nav-link" href="index.html">← Games</a>
+  </nav>
+
+  <div id="round-display">Round 1 / 5</div>
+
+  <div id="instruction">
+    <p class="inst-main">Click when the circle flashes</p>
+    <p class="inst-sub">Stay present. Do not anticipate.</p>
+  </div>
+
+  <div id="score-display">
+    <div class="score-dev" id="scoreDevVal">+48ms</div>
+    <div class="score-quality" id="scoreQuality">Close</div>
+    <p class="score-principle" id="scorePrinciple"></p>
+  </div>
+
+  <div id="missed-flash">Missed.</div>
+
+  <div id="plhand-moment">You are ready.</div>
+
+  <div id="final-overlay">
+    <p class="final-label">Preparation Index</p>
+    <div class="final-number" id="finalIndex">—</div>
+    <div class="final-denom">/ 100</div>
+    <div class="final-rounds" id="finalRounds"></div>
+    <div class="final-declaration">Watch this.</div>
+    <div class="final-again" id="finalAgain" role="button" tabindex="0">Play again</div>
+  </div>
+
+<script>
+  /* ── Corpus fallback ─────────────────────────────────────── */
+  const FALLBACK_CORPUS = [
+    "Preparation is not waiting. It is the posture before arrival.",
+    "The prepared mind does not react. It responds from position.",
+    "Being ready means you have already decided.",
+    "Luxury does not rush. It arrives when it is ready.",
+    "Prepared for luxury means you have already made room for it.",
+    "The first truth is not ambition. It is readiness.",
+    "You cannot be surprised by what you have already prepared for.",
+    "Presence is the only preparation that cannot be faked.",
+    "The practice begins before you sit down to practice.",
+    "To be prepared is to have already begun."
+  ];
+
+  const TOTAL_ROUNDS = 5;
+  const HIT_WINDOW   = 180;  // ms
+  const PERFECT_MS   = 30;   // ms — shows PLHand moment
+
+  /* ── State ───────────────────────────────────────────────── */
+  let state        = 'idle';  // idle | armed | flash | scored | done
+  let round        = 1;
+  let flashTime    = 0;
+  let roundResults = [];
+  let flashTimer   = null;
+  let roundClicked = false;
+  let rings        = [];
+  let usedIdx      = new Set();
+
+  /* ── DOM ─────────────────────────────────────────────────── */
+  const elRound   = document.getElementById('round-display');
+  const elInst    = document.getElementById('instruction');
+  const elScore   = document.getElementById('score-display');
+  const elDev     = document.getElementById('scoreDevVal');
+  const elQuality = document.getElementById('scoreQuality');
+  const elPrincip = document.getElementById('scorePrinciple');
+  const elMissed  = document.getElementById('missed-flash');
+  const elPlHand  = document.getElementById('plhand-moment');
+  const elFinal   = document.getElementById('final-overlay');
+  const elFinalN  = document.getElementById('finalIndex');
+  const elFinalR  = document.getElementById('finalRounds');
+  const elAgain   = document.getElementById('finalAgain');
+
+  function getPrinciple() {
+    if (usedIdx.size >= FALLBACK_CORPUS.length) usedIdx.clear();
+    let i;
+    do { i = Math.floor(Math.random() * FALLBACK_CORPUS.length); } while (usedIdx.has(i));
+    usedIdx.add(i);
+    return FALLBACK_CORPUS[i];
+  }
+
+  function armRound() {
+    roundClicked = false;
+    rings = [];
+    state = 'armed';
+    const delay = 4000 + Math.random() * 10000;
+    flashTimer = setTimeout(triggerFlash, delay);
+  }
+
+  function triggerFlash() {
+    if (state !== 'armed') return;
+    state     = 'flash';
+    flashTime = Date.now();
+    // auto-miss if no click within 1.5s of flash
+    flashTimer = setTimeout(() => {
+      if (state === 'flash' && !roundClicked) recordResult(1500);
+    }, 1500);
+  }
+
+  function recordResult(dev) {
+    if (roundClicked && dev === 1500) return; // guard
+    clearTimeout(flashTimer);
+    roundClicked = true;
+    state = 'scored';
+
+    const isMiss = dev >= 1500;
+    const score  = isMiss ? 0 : Math.max(0, Math.round(100 - (dev / HIT_WINDOW) * 100));
+    roundResults.push({ dev, score, isMiss });
+
+    if (isMiss) {
+      elMissed.style.opacity = '1';
+      setTimeout(() => { elMissed.style.opacity = '0'; }, 1800);
+      elPrincip.textContent = '"' + getPrinciple() + '"';
+      elInst.style.opacity  = '0';
+      elScore.style.opacity = '0';
+    } else {
+      const qualityLabel = score >= 90 ? 'Perfect' : score >= 70 ? 'Sharp' : score >= 40 ? 'Close' : 'Late';
+      elDev.textContent      = '+' + dev + 'ms';
+      elQuality.textContent  = qualityLabel;
+      elPrincip.textContent  = '"' + getPrinciple() + '"';
+      elInst.style.opacity   = '0';
+      elScore.style.opacity  = '1';
+
+      if (dev <= PERFECT_MS) {
+        elPlHand.style.opacity = '1';
+        setTimeout(() => { elPlHand.style.opacity = '0'; }, 2200);
+      }
+    }
+
+    setTimeout(advanceRound, 3200);
+  }
+
+  function advanceRound() {
+    elScore.style.opacity  = '0';
+    elMissed.style.opacity = '0';
+    if (round >= TOTAL_ROUNDS) {
+      showFinal();
+    } else {
+      round++;
+      elRound.textContent  = 'Round ' + round + ' / ' + TOTAL_ROUNDS;
+      elInst.style.opacity = '1';
+      setTimeout(armRound, 700);
+    }
+  }
+
+  function showFinal() {
+    const avg = roundResults.reduce((a, b) => a + b.score, 0) / TOTAL_ROUNDS;
+    elFinalN.textContent = Math.round(avg);
+
+    elFinalR.innerHTML = roundResults.map((r, i) => {
+      const cls = r.isMiss ? '' : r.score >= 90 ? 'perfect' : r.score >= 40 ? 'hit' : '';
+      const label = r.isMiss ? 'Miss' : '+' + r.dev + 'ms';
+      return `<span class="final-round-chip ${cls}">R${i+1}: ${label}</span>`;
+    }).join('');
+
+    state = 'done';
+    elInst.style.opacity  = '0';
+    elScore.style.opacity = '0';
+    setTimeout(() => { elFinal.classList.add('visible'); }, 400);
+  }
+
+  function restartGame() {
+    round        = 1;
+    roundResults = [];
+    usedIdx.clear();
+    rings        = [];
+    roundClicked = false;
+    elRound.textContent  = 'Round 1 / 5';
+    elInst.style.opacity = '1';
+    elFinal.classList.remove('visible');
+    state = 'idle';
+    setTimeout(armRound, 1000);
+  }
+
+  elAgain.addEventListener('click', restartGame);
+  elAgain.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') restartGame();
+  });
+
+  /* ── p5 sketch ───────────────────────────────────────────── */
+  document.addEventListener('DOMContentLoaded', () => {
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const sketch = p => {
+      const BASE_R = 46;
+
+      p.setup = () => {
+        const cnv = p.createCanvas(p.windowWidth, p.windowHeight);
+        cnv.parent('p5-host');
+        cnv.mouseClicked(() => onCanvasClick(p.mouseX, p.mouseY));
+      };
+
+      p.draw = () => {
+        p.clear();
+        if (state === 'idle' || state === 'done') return;
+
+        const cx = p.width / 2;
+        const cy = p.height / 2;
+
+        const flashing = state === 'flash' && (Date.now() - flashTime < 110);
+        const r = flashing
+          ? BASE_R + 10
+          : BASE_R + Math.sin((p.frameCount / 60) * (Math.PI * 2 / 4)) * 6;
+
+        const [cr, cg, cb] = flashing ? [240, 216, 120] : [201, 168, 76];
+        const ca = flashing ? 0.88 : 0.22;
+
+        // Soft glow
+        if (!prefersReduced) {
+          p.noStroke();
+          p.fill(cr, cg, cb, 22);
+          p.ellipse(cx, cy, (r + 44) * 2);
+          p.fill(cr, cg, cb, 10);
+          p.ellipse(cx, cy, (r + 72) * 2);
+        }
+
+        // Circle fill
+        p.noStroke();
+        p.fill(cr, cg, cb, ca * 255);
+        p.ellipse(cx, cy, r * 2);
+
+        // Circle ring
+        p.noFill();
+        p.stroke(cr, cg, cb, flashing ? 255 : 160);
+        p.strokeWeight(1);
+        p.ellipse(cx, cy, r * 2);
+
+        // Expanding rings
+        for (let i = rings.length - 1; i >= 0; i--) {
+          const rg = rings[i];
+          rg.r     += 8;
+          rg.alpha -= 9;
+          if (rg.alpha <= 0) { rings.splice(i, 1); continue; }
+          p.noFill();
+          p.stroke(201, 168, 76, rg.alpha);
+          p.strokeWeight(1);
+          p.ellipse(rg.x, rg.y, rg.r * 2);
+        }
+      };
+
+      p.windowResized = () => p.resizeCanvas(p.windowWidth, p.windowHeight);
+    };
+
+    new p5(sketch);
+    setTimeout(armRound, 1400);
+  });
+
+  function onCanvasClick(x, y) {
+    rings.push({ x, y, r: 12, alpha: 200 });
+    if (state === 'flash') {
+      const dev = Math.abs(Date.now() - flashTime);
+      recordResult(dev);
+    }
+    // clicks during 'armed' or 'scored' states: ring visual only, no scoring effect
+  }
+</script>
+</body>
+</html>

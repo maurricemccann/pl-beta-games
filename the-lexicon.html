@@ -1,0 +1,833 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Lexicon — PL Beta Games</title>
+
+  <style>
+    @font-face {
+      font-family: 'PLHand';
+      src: url('fonts/MaurriceMccannPsychedHandwrit-Regular.otf') format('opentype'),
+           url('fonts/MaurriceMccannPsychedHandwrit-Regular.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+    }
+  </style>
+
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --void: #F8F2E4;
+      --gold: #B8861C;
+      --gold-dim: #7A5C14;
+      --bone: #0A0A0A;
+      --ash: #3A3020;
+    }
+
+    body {
+      background: var(--void);
+      color: var(--bone);
+      font-family: 'PLHand', cursive;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* p5 canvas — full game surface */
+    #p5-host {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+    }
+
+    /* Header overlay */
+    .lex-header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      display: flex;
+      align-items: center;
+      padding: 16px 28px;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .lex-header a { pointer-events: auto; }
+
+    .back {
+      font-size: 10px;
+      letter-spacing: 0.35em;
+      color: var(--gold-dim);
+      text-decoration: none;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .back:hover { color: var(--gold); }
+
+    /* HUD — score + lives during gameplay */
+    #hud {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      padding: 16px 28px;
+      z-index: 10;
+      pointer-events: none;
+      align-items: center;
+      justify-content: space-between;
+    }
+    #hud.active { display: flex; }
+
+    .hud-score {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .hud-score-label {
+      font-size: 8px;
+      letter-spacing: 0.35em;
+      color: var(--ash);
+      text-transform: uppercase;
+    }
+    .hud-score-val {
+      font-family: 'PLHand', cursive;
+      font-size: 26px;
+      font-weight: 400;
+      color: var(--gold);
+      line-height: 1;
+    }
+
+    .hud-lives {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 1px;
+    }
+    .hud-lives-label {
+      font-size: 8px;
+      letter-spacing: 0.35em;
+      color: var(--ash);
+      text-transform: uppercase;
+    }
+    .hud-lives-val {
+      font-family: 'PLHand', 'Cormorant Garamond', Georgia, serif;
+      font-size: 26px;
+      color: var(--gold);
+      letter-spacing: 0.1em;
+      line-height: 1;
+    }
+
+    /* Streak indicator */
+    #streakBadge {
+      display: none;
+      position: fixed;
+      top: 64px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      font-size: 9px;
+      letter-spacing: 0.4em;
+      color: var(--gold);
+      text-transform: uppercase;
+      background: rgba(184,134,28,0.08);
+      border: 1px solid var(--gold-dim);
+      padding: 4px 16px;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+
+    /* Idle screen */
+    .overlay-screen {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      background: rgba(248,242,228,0.96);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      padding: 40px 24px;
+      text-align: center;
+      transition: opacity 0.4s;
+    }
+    .overlay-screen.visible { display: flex; }
+
+    .overlay-law {
+      font-size: 9px;
+      letter-spacing: 0.5em;
+      color: var(--gold-dim);
+      text-transform: uppercase;
+    }
+
+    .overlay-headline {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(28px, 7vw, 56px);
+      font-weight: 400;
+      color: var(--bone);
+      letter-spacing: 0.05em;
+      line-height: 1.1;
+    }
+
+    .overlay-desc {
+      font-size: 12px;
+      color: var(--ash);
+      line-height: 2;
+      max-width: 380px;
+    }
+
+    .btn {
+      background: transparent;
+      border: 1px solid var(--gold-dim);
+      color: var(--gold);
+      font-family: 'PLHand', cursive;
+      font-size: 10px;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      padding: 14px 36px;
+      min-height: 44px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn:hover { border-color: var(--gold); color: var(--bone); }
+
+    /* Gameover screen */
+    .go-score-big {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(56px, 12vw, 96px);
+      font-weight: 400;
+      color: var(--gold);
+      line-height: 1;
+    }
+
+    .go-verdict {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(14px, 3vw, 20px);
+      font-style: normal;
+      color: var(--bone);
+      max-width: 380px;
+      line-height: 1.5;
+    }
+
+    .watch-this {
+      font-family: 'PLHand', 'Cormorant Garamond', Georgia, serif;
+      font-size: clamp(22px, 4vw, 32px);
+      color: var(--gold);
+      letter-spacing: 0.06em;
+      margin-top: 4px;
+    }
+
+    :focus-visible { outline: 2px solid var(--gold-dim); outline-offset: 3px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      #p5-host { display: none; }
+      body::after {
+        content: 'The Lexicon requires animation to play.';
+        position: fixed; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        font-family: 'PLHand', cursive;
+        color: #7A5C14; font-size: 18px; letter-spacing: 0.1em;
+      }
+    }
+  </style>
+  <!-- PL theme injection: reads accent/glyph from URL params or sessionStorage -->
+  <script id="pl-theme">
+  (function(){
+    function hexToRgb(h){h=h.replace(/^#/,'');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function clamp(v){return Math.max(0,Math.min(255,Math.round(v)));}
+    function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(x){return clamp(x).toString(16).padStart(2,'0')}).join('');}
+    function lighten(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]+(255-c[0])*pct,c[1]+(255-c[1])*pct,c[2]+(255-c[2])*pct);}
+    function darken(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]*(1-pct),c[1]*(1-pct),c[2]*(1-pct));}
+    function isHex(s){return /^#?[0-9a-fA-F]{6}$/.test(s);}
+    function applyAccent(accent){
+      var h=accent.startsWith('#')?accent:'#'+accent;
+      var el=document.documentElement;
+      el.style.setProperty('--gold',h);
+      el.style.setProperty('--gold-bright',lighten(h,0.18));
+      el.style.setProperty('--gold-light',lighten(h,0.14));
+      el.style.setProperty('--gold-dim',darken(h,0.25));
+      el.style.setProperty('--gold-muted',darken(h,0.12));
+    }
+    var params=new URLSearchParams(window.location.search);
+    var accent=params.get('accent')||'';
+    var glyph=params.get('glyph')||'';
+    if(accent&&isHex(accent)){
+      sessionStorage.setItem('pl_accent',accent);
+      applyAccent(accent);
+    } else {
+      var sa=sessionStorage.getItem('pl_accent');
+      if(sa&&isHex(sa)){applyAccent(sa);}
+    }
+    if(glyph){sessionStorage.setItem('pl_glyph',glyph);}
+    window.PL_GLYPH=glyph||sessionStorage.getItem('pl_glyph')||'';
+    function propagateLinks(){
+      var a=sessionStorage.getItem('pl_accent');
+      var g=sessionStorage.getItem('pl_glyph');
+      if(!a&&!g)return;
+      var links=document.querySelectorAll('a[href]');
+      links.forEach(function(el){
+        var href=el.getAttribute('href');
+        if(!href||href.startsWith('http')||href.startsWith('//')||href.startsWith('#'))return;
+        if(!href.endsWith('.html'))return;
+        if(el.dataset.plThemed)return;
+        el.dataset.plThemed='1';
+        var url=new URL(href,window.location.href);
+        if(a)url.searchParams.set('accent',a);
+        if(g)url.searchParams.set('glyph',g);
+        el.setAttribute('href',url.pathname.split('/').pop()+'?'+url.searchParams.toString());
+      });
+    }
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',propagateLinks);}else{propagateLinks();}
+  })();
+  </script><script src="pl-game-data.js"></script>
+<script src="pl-points.js" defer></script></head>
+<body>
+
+<div id="game-instructions" style="position:fixed;inset:0;z-index:1000;background:#F8F2E4;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center;">
+  <p style="font-family:'PLHand',cursive;font-size:9px;letter-spacing:0.5em;text-transform:uppercase;color:#7A5C14;margin-bottom:16px;">How to Play</p>
+  <h2 style="font-family:'PLHand',cursive;font-size:clamp(28px,6vw,52px);color:#0A0A0A;font-weight:400;margin-bottom:20px;">The Lexicon</h2>
+  <p style="font-family:'PLHand',cursive;font-size:clamp(14px,2vw,18px);color:#3A3020;max-width:480px;line-height:1.7;margin-bottom:32px;">Words fall from above in three lanes. Click a word to select it, then click the correct glyph bucket at the bottom to sort it. Miss the bottom — lose a life. Wrong sort — the word flashes and falls. Three lives. Thirty words.</p>
+  <button id="begin-btn" style="font-family:'PLHand',cursive;font-size:12px;letter-spacing:0.4em;text-transform:uppercase;padding:16px 40px;background:transparent;border:1px solid #7A5C14;color:#B8861C;cursor:pointer;">Begin</button>
+</div>
+
+<!-- p5 canvas -->
+<div id="p5-host"></div>
+
+<!-- Header (back link only, title is drawn by p5 when idle) -->
+<header class="lex-header">
+  <a class="back" href="index.html">← Games</a>
+</header>
+
+<!-- HUD (shown during gameplay) -->
+<div id="hud">
+  <div class="hud-score">
+    <span class="hud-score-label">Score</span>
+    <span class="hud-score-val" id="scoreVal">0</span>
+  </div>
+  <div class="hud-lives">
+    <span class="hud-lives-label">Lives</span>
+    <span class="hud-lives-val" id="livesVal">●●●</span>
+  </div>
+</div>
+
+<div id="streakBadge">Streak ×1.5</div>
+
+<!-- Idle screen -->
+<div class="overlay-screen visible" id="idleScreen">
+  <p class="overlay-law">The Lexicon</p>
+  <h1 class="overlay-headline">Sort the Signal.</h1>
+  <p class="overlay-desc">Seven clusters. Thirty words. Each word belongs to a glyph. Sort it before it falls. Miss one — lose a life. Three lives.</p>
+  <button class="btn" id="startBtn">Begin Sorting</button>
+</div>
+
+<!-- Gameover screen -->
+<div class="overlay-screen" id="gameoverScreen">
+  <p class="overlay-law">Session Complete</p>
+  <div class="go-score-big" id="goScore">0</div>
+  <div class="go-verdict" id="goVerdict"></div>
+  <button class="btn" id="restartBtn">Sort Again</button>
+  <div class="watch-this">Watch this.</div>
+</div>
+
+<script>
+  // ── Lexicon data ───────────────────────────────────────────────────────────
+  const LEXICON = [
+    { id: 'curve',        symbol: '⌒', glyph: 'The Curve',
+      words: ['curve','arc','trace','line','motion','flow','path','draw','mark','hand','daily','return'] },
+    { id: 'preparation',  symbol: '◈', glyph: 'The Gate',
+      words: ['ready','prepared','open','still','before','threshold','entry','position','ground','base','foundation','stance'] },
+    { id: 'control',      symbol: '⊕', glyph: 'The Axis',
+      words: ['control','center','hold','axis','anchor','choice','will','direct','own','sovereign','decide','command'] },
+    { id: 'persistence',  symbol: '∞', glyph: 'The Loop',
+      words: ['persist','return','repeat','build','accumulate','stay','keep','practice','again','continue','habit','compound'] },
+    { id: 'signal',       symbol: '◉', glyph: 'The Signal',
+      words: ['signal','send','transmit','reach','frequency','tune','receive','call','pulse','broadcast','message','wave'] },
+    { id: 'archive',      symbol: '▣', glyph: 'The Vault',
+      words: ['archive','record','store','preserve','collect','evidence','proof','document','catalog','memory','history','vault'] },
+    { id: 'congregation', symbol: '⬡', glyph: 'The Congregation',
+      words: ['gather','together','belong','recognize','find','join','stay','loyal','know','understand','chosen','aligned'] },
+  ];
+
+  const FALSE_WORDS = ['office','clock','window','table','simple','answer','paper','glass','random','default'];
+
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function buildWordQueue() {
+    const pool = LEXICON.flatMap(c => c.words.map(w => ({ word: w, clusterId: c.id, isFalse: false })));
+    const real = shuffle(pool).slice(0, 25);
+    const falsePool = shuffle(FALSE_WORDS).slice(0, 5).map(w => ({ word: w, clusterId: null, isFalse: true }));
+
+    // Mix false words into positions 20–29
+    const queue = [...real];
+    falsePool.forEach(fw => {
+      const pos = 20 + Math.floor(Math.random() * (queue.length - 20 + 1));
+      queue.splice(Math.min(pos, queue.length), 0, fw);
+    });
+    return queue.slice(0, 30);
+  }
+
+  // ── Game state ─────────────────────────────────────────────────────────────
+  let gameActive   = false;
+  let score        = 0;
+  let lives        = 3;
+  let streak       = 0;
+  let wordsDone    = 0;
+  let wordQueue    = [];
+  let selectedLane = -1;
+  let sortParticles = [];
+  let bucketGlows  = []; // [{ idx, life, maxLife }]
+
+  const BUCKET_H      = 80;
+  const BUCKET_MARGIN = 16;
+  const BUCKET_GAP    = 6;
+
+  let lanes = [
+    { x: 0, word: null }, // positions set in setup
+    { x: 0, word: null },
+    { x: 0, word: null },
+  ];
+
+  function getSpeed(queueIdx) {
+    if (queueIdx < 10) return 1.2;
+    if (queueIdx < 20) return 1.8;
+    return 2.4;
+  }
+
+  function updateLives() {
+    const dots = ['', '●', '●●', '●●●'];
+    document.getElementById('livesVal').textContent = dots[Math.max(0, lives)] || '';
+  }
+
+  function updateScore() {
+    document.getElementById('scoreVal').textContent = score;
+  }
+
+  function loseLife() {
+    lives = Math.max(0, lives - 1);
+    updateLives();
+    if (lives <= 0) endGame();
+  }
+
+  function endGame() {
+    gameActive = false;
+    document.getElementById('hud').classList.remove('active');
+    document.getElementById('streakBadge').style.display = 'none';
+
+    document.getElementById('goScore').textContent = score;
+    const verdicts = [
+      'The field returned nothing. Begin again.',
+      'Some words found their cluster. Practice continues.',
+      'Clear sorting. The resonance is forming.',
+      'Precise. The clusters are understood.',
+      'The Lexicon is yours.',
+    ];
+    const vIdx = score < 50 ? 0 : score < 150 ? 1 : score < 250 ? 2 : score < 350 ? 3 : 4;
+    document.getElementById('goVerdict').textContent = verdicts[vIdx];
+    document.getElementById('gameoverScreen').classList.add('visible');
+  }
+
+  function spawnInLane(laneIdx) {
+    if (wordQueue.length === 0) return;
+    const wordData = wordQueue.shift();
+    wordsDone++;
+    lanes[laneIdx].word = {
+      ...wordData,
+      y: -28,
+      speed: getSpeed(wordsDone - 1),
+      selected: false,
+      redFlash: 0,
+    };
+  }
+
+  function tryFillLanes() {
+    if (!gameActive) return;
+    // Stagger: only fill an empty lane if queue has words and the last spawn is past y=80
+    const lastY = Math.max(...lanes.map(l => l.word ? l.word.y : 999));
+    if (lastY < 60 && wordsDone < 30) return; // too soon
+    lanes.forEach((lane, i) => {
+      if (!lane.word && wordQueue.length > 0) {
+        spawnInLane(i);
+      }
+    });
+  }
+
+  function correctSort(laneIdx, bucketIdx, wordX, wordY) {
+    score += streak >= 2 ? Math.round(10 * 1.5) : 10;
+    streak++;
+    updateScore();
+
+    // Streak badge
+    if (streak >= 3) {
+      const badge = document.getElementById('streakBadge');
+      badge.textContent = `Streak ×1.5`;
+      badge.style.display = '';
+      clearTimeout(badge._t);
+      badge._t = setTimeout(() => { badge.style.display = 'none'; }, 1500);
+    }
+
+    lanes[laneIdx].word = null;
+    emitSortParticles(wordX, wordY);
+    triggerBucketGlow(bucketIdx);
+    setTimeout(() => tryFillLanes(), 200);
+  }
+
+  function emitSortParticles(x, y) {
+    for (let i = 0; i < 12; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 2 + Math.random() * 2.5;
+      sortParticles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 1, life: 22, maxLife: 22, r: 2 + Math.random() * 2 });
+    }
+  }
+
+  function triggerBucketGlow(idx) {
+    bucketGlows = bucketGlows.filter(g => g.idx !== idx);
+    bucketGlows.push({ idx, life: 28, maxLife: 28 });
+  }
+
+  // ── p5 sketch ─────────────────────────────────────────────────────────────
+  const lexSketch = p => {
+    let bucketW = 0;
+
+    p.setup = () => {
+      const cnv = p.createCanvas(p.windowWidth, p.windowHeight);
+      cnv.parent('p5-host');
+      p.noStroke();
+      updateLayout();
+    };
+
+    function updateLayout() {
+      const totalGap = BUCKET_GAP * (LEXICON.length - 1);
+      bucketW = (p.width - 32 - totalGap) / LEXICON.length;
+      lanes[0].x = p.width * 0.22;
+      lanes[1].x = p.width * 0.50;
+      lanes[2].x = p.width * 0.78;
+    }
+
+    function bucketX(i) {
+      return 16 + i * (bucketW + BUCKET_GAP);
+    }
+
+    function getBucketTop() {
+      return p.height - BUCKET_H - BUCKET_MARGIN;
+    }
+
+    function getBucketAtPoint(mx, my) {
+      const by = getBucketTop();
+      for (let i = 0; i < LEXICON.length; i++) {
+        const bx = bucketX(i);
+        if (mx >= bx && mx <= bx + bucketW && my >= by - 8 && my <= p.height - BUCKET_MARGIN) return i;
+      }
+      return -1;
+    }
+
+    function getWordAtPoint(mx, my) {
+      for (let i = 0; i < lanes.length; i++) {
+        const lane = lanes[i];
+        if (!lane.word || lane.word.redFlash > 0) continue;
+        if (Math.abs(mx - lane.x) <= 70 && Math.abs(my - lane.word.y) <= 16) return i;
+      }
+      return -1;
+    }
+
+    p.draw = () => {
+      p.background(248, 242, 228);
+
+      if (!gameActive) {
+        drawIdleField();
+        return;
+      }
+
+      drawBuckets();
+      drawWords();
+      drawParticles();
+      advanceBucketGlows();
+      tryFillIfNeeded();
+    };
+
+    function drawIdleField() {
+      // Subtle ambient: just draw the 7 buckets faintly to preview the mechanic
+      p.noStroke();
+      const totalGap = BUCKET_GAP * (LEXICON.length - 1);
+      const bw = (p.width - 32 - totalGap) / LEXICON.length;
+      LEXICON.forEach((lex, i) => {
+        const bx = 16 + i * (bw + BUCKET_GAP);
+        const by = getBucketTop();
+        drawOneBucket(bx, bw, lex, i, 0);
+      });
+    }
+
+    function drawBuckets() {
+      LEXICON.forEach((lex, i) => {
+        const bx  = bucketX(i);
+        const glow = bucketGlows.find(g => g.idx === i);
+        const glowP = glow ? (glow.life / glow.maxLife) : 0;
+        drawOneBucket(bx, bucketW, lex, i, glowP);
+      });
+    }
+
+    function drawOneBucket(bx, bw, lex, idx, glowP) {
+      const by     = getBucketTop();
+      const inset  = 12;
+      const bHigh  = p.height - BUCKET_MARGIN;
+
+      p.noStroke();
+      p.fill(184, 134, 28, Math.round(22 + glowP * 60));
+      p.beginShape();
+      p.vertex(bx + inset,      by);
+      p.vertex(bx + bw - inset, by);
+      p.vertex(bx + bw,         bHigh);
+      p.vertex(bx,              bHigh);
+      p.endShape(p.CLOSE);
+
+      p.stroke(184, 134, 28, Math.round(80 + glowP * 140));
+      p.strokeWeight(1.5);
+      p.noFill();
+      p.beginShape();
+      p.vertex(bx + inset,      by);
+      p.vertex(bx + bw - inset, by);
+      p.vertex(bx + bw,         bHigh);
+      p.vertex(bx,              bHigh);
+      p.endShape(p.CLOSE);
+      p.noStroke();
+
+      const cx = bx + bw / 2;
+      const cy = by + BUCKET_H / 2;
+
+      // Glyph symbol
+      dt(lex.symbol, cx, cy - 9,  { size: 20, opacity: 0.8 + glowP * 0.2, family: 'PLHand' });
+      // Glyph name
+      dt(lex.glyph,  cx, cy + 16, { size: 8,  opacity: 0.35 + glowP * 0.3, family: 'PLHand' });
+    }
+
+    function drawWords() {
+      lanes.forEach((lane, i) => {
+        if (!lane.word) return;
+        const w = lane.word;
+
+        // Advance position
+        w.y += w.speed;
+
+        // Red flash countdown
+        if (w.redFlash > 0) {
+          w.redFlash--;
+          if (w.redFlash <= 0) {
+            lane.word = null;
+            streak = 0;
+            if (gameActive) setTimeout(() => tryFillLanes(), 150);
+            return;
+          }
+        }
+
+        // Missed bottom
+        if (w.y > getBucketTop() - 10) {
+          if (!w.isFalse) loseLife();
+          lane.word = null;
+          streak = 0;
+          if (gameActive) setTimeout(() => tryFillLanes(), 150);
+          return;
+        }
+
+        // Draw
+        const ctx = p.drawingContext;
+        ctx.save();
+
+        const isSelected = (i === selectedLane);
+        const isFlash    = w.redFlash > 0;
+        const isFalse    = w.isFalse;
+
+        const textColor = isFlash ? '#AA3333' : isSelected ? '#B8861C' : isFalse ? '#7A6840' : '#0A0A0A';
+        const textAlpha = isFlash ? (Math.sin(w.redFlash * 0.6) * 0.5 + 0.7) : 1;
+
+        ctx.font = `400 15px 'PLHand', cursive`;
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+
+        const textW  = ctx.measureText(w.word).width;
+        const padX   = 10;
+        const boxW   = textW + padX * 2;
+        const boxH   = 26;
+        const boxX   = lane.x - boxW / 2;
+        const boxY   = w.y - boxH / 2;
+
+        // Background box
+        ctx.fillStyle   = isSelected ? 'rgba(184,134,28,0.12)' : 'rgba(248,242,228,0.85)';
+        ctx.fillRect(boxX, boxY, boxW, boxH);
+
+        // Selection border
+        if (isSelected) {
+          ctx.strokeStyle = 'rgba(184,134,28,0.55)';
+          ctx.lineWidth   = 1;
+          ctx.strokeRect(boxX, boxY, boxW, boxH);
+        }
+
+        // Word text
+        ctx.globalAlpha = textAlpha;
+        ctx.fillStyle   = textColor;
+        ctx.fillText(w.word, lane.x, w.y);
+
+        ctx.restore();
+      });
+    }
+
+    function drawParticles() {
+      sortParticles = sortParticles.filter(sp => sp.life > 0);
+      sortParticles.forEach(sp => {
+        sp.x += sp.vx;
+        sp.y += sp.vy;
+        sp.vy += 0.08; // gentle gravity
+        sp.life--;
+        const alpha = Math.round((sp.life / sp.maxLife) * 220);
+        p.noStroke();
+        p.fill(184, 134, 28, alpha);
+        p.circle(sp.x, sp.y, sp.r * 2);
+      });
+    }
+
+    function advanceBucketGlows() {
+      bucketGlows = bucketGlows.filter(g => {
+        g.life--;
+        return g.life > 0;
+      });
+    }
+
+    let fillDebounce = 0;
+    function tryFillIfNeeded() {
+      fillDebounce++;
+      if (fillDebounce % 60 !== 0) return; // check once per second
+      const empties = lanes.filter(l => !l.word).length;
+      if (empties > 0 && wordQueue.length > 0) tryFillLanes();
+    }
+
+    p.mousePressed = () => {
+      if (!gameActive) return;
+
+      const bucket = getBucketAtPoint(p.mouseX, p.mouseY);
+
+      if (bucket >= 0 && selectedLane >= 0) {
+        // Attempt sort
+        const w = lanes[selectedLane].word;
+        if (w && !w.isFalse) {
+          if (w.clusterId === LEXICON[bucket].id) {
+            correctSort(selectedLane, bucket, lanes[selectedLane].x, w.y);
+            selectedLane = -1;
+          } else {
+            // Wrong sort — red flash, word falls off
+            w.selected  = false;
+            w.redFlash  = 30;
+            streak = 0;
+            selectedLane = -1;
+          }
+        }
+        return;
+      }
+
+      // Click on a word
+      const wordLane = getWordAtPoint(p.mouseX, p.mouseY);
+      if (wordLane >= 0) {
+        const w = lanes[wordLane].word;
+        if (w.isFalse) {
+          // Penalty: touching a false word costs a life
+          loseLife();
+          lanes[wordLane].word = null;
+          streak = 0;
+          if (gameActive) setTimeout(() => tryFillLanes(), 150);
+          return;
+        }
+
+        if (selectedLane === wordLane) {
+          // Deselect
+          w.selected   = false;
+          selectedLane = -1;
+        } else {
+          // Deselect previous
+          if (selectedLane >= 0 && lanes[selectedLane].word) lanes[selectedLane].word.selected = false;
+          w.selected   = true;
+          selectedLane = wordLane;
+        }
+        return;
+      }
+
+      // Click elsewhere: deselect
+      if (selectedLane >= 0 && lanes[selectedLane].word) lanes[selectedLane].word.selected = false;
+      selectedLane = -1;
+    };
+
+    p.windowResized = () => {
+      p.resizeCanvas(p.windowWidth, p.windowHeight);
+      updateLayout();
+    };
+
+    // Expose start/stop to HTML buttons
+    window._lexStart = () => {
+      score      = 0;
+      lives      = 3;
+      streak     = 0;
+      wordsDone  = 0;
+      wordQueue  = buildWordQueue();
+      selectedLane  = -1;
+      sortParticles = [];
+      bucketGlows   = [];
+      lanes.forEach(l => l.word = null);
+
+      updateScore();
+      updateLives();
+      updateLayout();
+
+      // Initial spawn
+      for (let i = 0; i < 3 && wordQueue.length > 0; i++) {
+        // Stagger the initial spawns vertically
+        spawnInLane(i);
+        if (lanes[i].word) lanes[i].word.y = -28 - i * 80;
+      }
+
+      gameActive = true;
+      document.getElementById('hud').classList.add('active');
+    };
+  };
+
+  // ── Button wiring ──────────────────────────────────────────────────────────
+  document.getElementById('startBtn').addEventListener('click', () => {
+    document.getElementById('idleScreen').classList.remove('visible');
+    document.getElementById('hud').classList.add('active');
+    if (window._lexStart) window._lexStart();
+  });
+
+  document.getElementById('restartBtn').addEventListener('click', () => {
+    document.getElementById('gameoverScreen').classList.remove('visible');
+    if (window._lexStart) window._lexStart();
+  });
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (typeof p5 !== 'undefined' && !prefersReduced) {
+    new p5(lexSketch);
+  }
+
+  // Helper: dt(str, x, y, opts) — used inside sketch but also accessible
+  function dt(str, x, y, { size = 13, opacity = 1, family = 'PLHand', weight = '400', align = 'center', base = 'middle' } = {}) {
+    // This is called within p5 sketch scope — not used here directly
+  }
+
+  (function() {
+    const panel = document.getElementById('game-instructions');
+    if (!panel) return;
+    if (sessionStorage.getItem('pl_instructions_seen_' + location.pathname)) { panel.style.display = 'none'; return; }
+    document.getElementById('begin-btn').addEventListener('click', function() {
+      panel.style.display = 'none';
+      sessionStorage.setItem('pl_instructions_seen_' + location.pathname, '1');
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { panel.style.display = 'none'; sessionStorage.setItem('pl_instructions_seen_' + location.pathname, '1'); }
+    });
+  })();
+</script>
+</body>
+</html>

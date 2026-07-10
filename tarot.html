@@ -1,0 +1,495 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Psyched Luxuries Tarot — PL Beta Games</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @font-face {
+      font-family: 'PLHand';
+      src: url('fonts/MaurriceMccannPsychedHandwrit-Regular.otf') format('opentype'),
+           url('fonts/MaurriceMccannPsychedHandwrit-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --void: #F0EAF8;
+      --gold: #6B3FA8;
+      --gold-dim: #4A2880;
+      --gold-muted: #7B50B8;
+      --bone: #0A0A0A;
+      --ash: #7A6090;
+      --border: #C4A8E8;
+      --btn-bg: #E0D4F0;
+    }
+
+    html, body {
+      width: 100%; min-height: 100%;
+      background: var(--void);
+      color: var(--bone);
+      font-family: 'PLHand', cursive;
+      overflow-x: hidden;
+    }
+
+    #p5-host {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+    #p5-host canvas { display: block; width: 100% !important; height: 100% !important; }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 80px 24px 120px;
+    }
+
+    .nav-bar {
+      position: fixed;
+      top: 24px; left: 24px;
+      z-index: 10;
+    }
+    .nav-link {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      color: var(--ash);
+      text-decoration: none;
+      text-transform: uppercase;
+    }
+    .nav-link:hover { color: var(--gold); }
+
+    #draw-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+
+    #draw-btn {
+      padding: 14px 40px;
+      background: var(--btn-bg);
+      border: 1px solid var(--gold-dim);
+      color: var(--gold);
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    #draw-btn:hover { border-color: var(--gold); box-shadow: 0 0 12px rgba(201,168,76,0.08); }
+
+    #draw-label {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--ash);
+    }
+
+    #spread {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 900px;
+      margin-bottom: 40px;
+    }
+
+    .tarot-card {
+      width: min(200px, 42vw);
+      background: var(--btn-bg);
+      border: 1px solid var(--border);
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: border-color 0.3s;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.5s, transform 0.5s, border-color 0.3s;
+    }
+    .tarot-card.revealed { opacity: 1; transform: translateY(0); border-color: var(--gold-dim); }
+
+    .card-num {
+      font-size: 9px;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      color: var(--gold-dim);
+    }
+    .card-symbol {
+      font-size: 32px;
+      color: var(--gold);
+      line-height: 1;
+    }
+    .card-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: 16px;
+      color: var(--gold);
+      letter-spacing: 0.05em;
+    }
+    .card-reading {
+      font-size: 11px;
+      line-height: 1.6;
+      color: var(--bone);
+      opacity: 0.8;
+    }
+    .card-law {
+      font-size: 9px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--gold-dim);
+      margin-top: auto;
+    }
+
+    .card-piece {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: rgba(107,63,168,0.06);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .card-piece:empty { display: none; }
+    .card-piece img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .card-cr {
+      font-size: 8px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ash);
+    }
+    .card-cr:empty { display: none; }
+
+    #synthesis {
+      max-width: 560px;
+      text-align: center;
+      opacity: 0;
+      transition: opacity 0.8s;
+    }
+    #synthesis.visible { opacity: 1; }
+    #synthesis-text {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: clamp(15px, 2.5vw, 19px);
+      color: var(--gold-muted);
+      line-height: 1.7;
+      margin-bottom: 16px;
+    }
+
+    #plhand-end {
+      position: fixed;
+      bottom: 72px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      font-family: 'PLHand', cursive;
+      font-size: clamp(18px, 3.5vw, 26px);
+      color: var(--gold);
+      opacity: 0;
+      transition: opacity 0.6s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; }
+      #p5-host { display: none; }
+    }
+  </style>
+  <!-- PL theme injection: reads accent/glyph from URL params or sessionStorage -->
+  <script id="pl-theme">
+  (function(){
+    function hexToRgb(h){h=h.replace(/^#/,'');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function clamp(v){return Math.max(0,Math.min(255,Math.round(v)));}
+    function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(x){return clamp(x).toString(16).padStart(2,'0')}).join('');}
+    function lighten(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]+(255-c[0])*pct,c[1]+(255-c[1])*pct,c[2]+(255-c[2])*pct);}
+    function darken(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]*(1-pct),c[1]*(1-pct),c[2]*(1-pct));}
+    function isHex(s){return /^#?[0-9a-fA-F]{6}$/.test(s);}
+    function applyAccent(accent){
+      var h=accent.startsWith('#')?accent:'#'+accent;
+      var el=document.documentElement;
+      el.style.setProperty('--gold',h);
+      el.style.setProperty('--gold-bright',lighten(h,0.18));
+      el.style.setProperty('--gold-light',lighten(h,0.14));
+      el.style.setProperty('--gold-dim',darken(h,0.25));
+      el.style.setProperty('--gold-muted',darken(h,0.12));
+    }
+    var params=new URLSearchParams(window.location.search);
+    var accent=params.get('accent')||'';
+    var glyph=params.get('glyph')||'';
+    if(accent&&isHex(accent)){
+      sessionStorage.setItem('pl_accent',accent);
+      applyAccent(accent);
+    } else {
+      var sa=sessionStorage.getItem('pl_accent');
+      if(sa&&isHex(sa)){applyAccent(sa);}
+    }
+    if(glyph){sessionStorage.setItem('pl_glyph',glyph);}
+    window.PL_GLYPH=glyph||sessionStorage.getItem('pl_glyph')||'';
+    function propagateLinks(){
+      var a=sessionStorage.getItem('pl_accent');
+      var g=sessionStorage.getItem('pl_glyph');
+      if(!a&&!g)return;
+      var links=document.querySelectorAll('a[href]');
+      links.forEach(function(el){
+        var href=el.getAttribute('href');
+        if(!href||href.startsWith('http')||href.startsWith('//')||href.startsWith('#'))return;
+        if(!href.endsWith('.html'))return;
+        if(el.dataset.plThemed)return;
+        el.dataset.plThemed='1';
+        var url=new URL(href,window.location.href);
+        if(a)url.searchParams.set('accent',a);
+        if(g)url.searchParams.set('glyph',g);
+        el.setAttribute('href',url.pathname.split('/').pop()+'?'+url.searchParams.toString());
+      });
+    }
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',propagateLinks);}else{propagateLinks();}
+  })();
+  </script><script src="pl-game-data.js"></script>
+<script src="pl-points.js" defer></script></head>
+<body>
+<div id="game-instructions" style="position:fixed;inset:0;background:#F0EAF8;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;font-family:'PLHand',cursive;">
+  <div style="max-width:500px;text-align:center;">
+    <p style="font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:#6B3FA8;margin-bottom:16px;">How to Play</p>
+    <h2 style="font-size:clamp(26px,4vw,40px);color:#0A0A0A;margin-bottom:20px;line-height:1.2;font-weight:400;">The Tarot</h2>
+    <p style="font-size:clamp(16px,2.5vw,20px);color:#3A1880;line-height:1.7;margin-bottom:36px;">The cards reflect the doctrine back at you. Draw one. What you see is not prediction — it is permission to see clearly.</p>
+    <button id="begin-btn" style="font-family:'PLHand',cursive;font-size:20px;background:#6B3FA8;color:#F0EAF8;border:none;padding:14px 40px;cursor:pointer;letter-spacing:0.1em;">Begin</button>
+  </div>
+</div>
+<script>
+(function(){
+  var panel=document.getElementById('game-instructions');
+  if(!panel)return;
+  if(sessionStorage.getItem('pl_seen_'+location.pathname)){panel.style.display='none';return;}
+  document.getElementById('begin-btn').addEventListener('click',function(){
+    panel.style.display='none';
+    sessionStorage.setItem('pl_seen_'+location.pathname,'1');
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){panel.style.display='none';sessionStorage.setItem('pl_seen_'+location.pathname,'1');}
+  });
+})();
+</script>
+
+  <div id="p5-host"></div>
+
+  <nav class="nav-bar">
+    <a class="nav-link" href="index.html">← Games</a>
+  </nav>
+
+  <div class="page">
+    <div id="draw-section">
+      <div id="draw-label">Draw three cards.</div>
+      <button id="draw-btn">Draw</button>
+    </div>
+
+    <div id="spread"></div>
+
+    <div id="synthesis">
+      <div id="synthesis-text"></div>
+    </div>
+  </div>
+
+  <div id="plhand-end">Watch this.</div>
+
+<script>
+  /* ── 22 PL Tarot cards ──────────────────────────────────── */
+  const DECK = [
+    { num: 'I',    symbol: '⌒',  name: 'The Curve',       law: 'Truth I',   reading: 'The governing motion returns. What you resist is the shape of the next phase. Follow the arc.' },
+    { num: 'II',   symbol: '◈',  name: 'Preparation',     law: 'Truth I',   reading: 'You were built for this. The conditions are not in your way — they are the preparation itself.' },
+    { num: 'III',  symbol: '⊕',  name: 'Control',         law: 'Truth II',  reading: 'You hold the variable. The outcome is architecture, not accident. Act on what you know.' },
+    { num: 'IV',   symbol: '∞',  name: 'Persistence',     law: 'Truth III', reading: 'Seven years proves it. The practice continues despite conditions. So does this.' },
+    { num: 'V',    symbol: '◉',  name: 'The Signal',      law: 'Truth III', reading: 'The frequency is broadcasting. Something is trying to reach you — or you are the transmission.' },
+    { num: 'VI',   symbol: '▣',  name: 'The Archive',     law: 'Truth III', reading: 'What was recorded does not disappear. The archive is proof. Return to what persists.' },
+    { num: 'VII',  symbol: '⬡',  name: 'The Congregation',law: 'Truth I',   reading: 'You are not alone in this frequency. The congregation is forming around a shared resonance.' },
+    { num: 'VIII', symbol: '◬',  name: 'The Void',        law: 'Truth I',   reading: 'Before emergence: the void. This card marks a transition — the condition before the next thing.' },
+    { num: 'IX',   symbol: '✦',  name: 'Gold on Black',   law: 'Truth I',   reading: 'The brand\'s signature axis: declaration on darkness. What do you declare from this ground?' },
+    { num: 'X',    symbol: '🜂',  name: 'The Practice',    law: 'Truth III', reading: 'Daily. Without exception. The practice is not a method — it is proof you exist as a creator.' },
+    { num: 'XI',   symbol: '≈',  name: 'The Pattern',     law: 'Truth II',  reading: 'Beneath the figure, the substrate. The pattern is not decoration — it is the field everything moves through.' },
+    { num: 'XII',  symbol: '☽',  name: 'The Dissolution', law: 'Truth II',  reading: 'The self that dissolved was not lost. The practice began from that return. You came back with tools.' },
+    { num: 'XIII', symbol: '⟲',  name: 'The Return',      law: 'Truth III', reading: 'Begin again. That is not failure — it is the practice. The return is the discipline.' },
+    { num: 'XIV',  symbol: '⌬',  name: 'Three Truths',      law: 'All',     reading: 'Prepared. In control. What persists becomes real. These are not rules — they are measurements of what already is.' },
+    { num: 'XV',   symbol: '♾',  name: 'The Long Game',   law: 'Truth III', reading: 'Seven years was the first stretch. Expand the timeline. The long game rewards those who do not quit.' },
+    { num: 'XVI',  symbol: '◌',  name: 'The Glyph',       law: 'Truth II',  reading: 'The dominant subject of the archive. The mark that holds still long enough to take a name. What is yours?' },
+    { num: 'XVII', symbol: '☊',  name: 'The Lineage',     law: 'Truth I',   reading: 'Chalk. Ink. Marker. Paint. The hand remembers its lineage. You were always a maker.' },
+    { num: 'XVIII',symbol: '⊞',  name: 'Reality Architect',law: 'Truth II', reading: 'The blueprint exists in the mind before the world. Architect your next phase with precision.' },
+    { num: 'XIX',  symbol: '⭘',  name: 'The Totem',       law: 'Truth I',   reading: 'The foundation beneath the figure. Grounded presence in the field. What grounds you right now?' },
+    { num: 'XX',   symbol: '⊛',  name: 'The Frequency',   law: 'Truth III', reading: 'Broadcast. The transmission is already out. The congregation forms around the signal you emit.' },
+    { num: 'XXI',  symbol: '◑',  name: 'The Seed',        law: 'Truth III', reading: 'The phrase carries the practice compressed. Every seed has a timeline. Plant this one today.' },
+    { num: 'XXII', symbol: '★',  name: 'Watch This',      law: 'All',     reading: 'The closing declaration. Not a boast — a direction of attention. This is the moment. Witness it.' },
+  ];
+
+  const SYNTHESES = [
+    "The three cards form a direction: {0}, then {1}, arriving at {2}. The practice connects them.",
+    "These forces are concurrent: {0} grounds you. {1} moves through you. {2} is where it lands.",
+    "The spread points inward: {0} is the condition. {1} is the response. {2} is what emerges.",
+    "Seven-year logic applies here: {0} began the sequence. {1} sustained it. {2} is the proof.",
+  ];
+
+  let drawn    = [];
+  let pulses   = [];
+  let revealed = 0;
+
+  const elSpread    = document.getElementById('spread');
+  const elSynth     = document.getElementById('synthesis');
+  const elSynthText = document.getElementById('synthesis-text');
+  const elHand      = document.getElementById('plhand-end');
+  const drawBtn     = document.getElementById('draw-btn');
+
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  /* NOTE: must NOT be named draw() — p5.js claims the global draw() as its
+     60fps render loop, which would re-deal the spread every frame. */
+  function castSpread() {
+    drawn  = shuffle(DECK).slice(0, 3);
+    revealed = 0;
+    elSpread.innerHTML = '';
+    elSynth.classList.remove('visible');
+    elSynthText.textContent = '';
+    drawBtn.textContent = 'Draw Again';
+
+    const cardEls = drawn.map((card, i) => {
+      const el = document.createElement('div');
+      el.className = 'tarot-card';
+      el.innerHTML = `
+        <div class="card-num">${card.num}</div>
+        <div class="card-symbol">${card.symbol}</div>
+        <div class="card-piece"></div>
+        <div class="card-name">${card.name}</div>
+        <div class="card-reading">${card.reading}</div>
+        <div class="card-law">${card.law}</div>
+        <div class="card-cr"></div>
+      `;
+      elSpread.appendChild(el);
+
+      setTimeout(() => {
+        el.classList.add('revealed');
+        pulses.push(1);
+        revealed++;
+        if (revealed === 3) {
+          setTimeout(() => showSynthesis(), 800);
+        }
+      }, 200 + i * 400);
+      return el;
+    });
+
+    // each card manifests a real piece from the seven-year archive (graceful if offline)
+    if (window.PLGames) {
+      PLGames.randomPieces(3).then(pieces => {
+        cardEls.forEach((el, i) => {
+          const pc = pieces[i];
+          if (!pc) return;
+          const src = pc.thumb || pc.image || pc.url;
+          const cr  = pc.cr || pc.code || '';
+          if (src) {
+            const box = el.querySelector('.card-piece');
+            if (box) {
+              const img = document.createElement('img');
+              img.src = src;
+              img.alt = pc.title || cr || 'archive piece';
+              img.loading = 'lazy';
+              box.appendChild(img);
+            }
+          }
+          const crEl = el.querySelector('.card-cr');
+          if (crEl && cr) crEl.textContent = 'From the archive · ' + cr;
+        });
+      }).catch(() => {});
+    }
+  }
+
+  function localSynthesis() {
+    const template = SYNTHESES[Math.floor(Math.random() * SYNTHESES.length)];
+    return template
+      .replace('{0}', drawn[0].name)
+      .replace('{1}', drawn[1].name)
+      .replace('{2}', drawn[2].name);
+  }
+
+  async function showSynthesis() {
+    elSynth.classList.add('visible');
+    elSynthText.textContent = 'Reading the spread…';
+
+    const names = drawn.map(c => c.name);
+    let text = '';
+    if (window.PLGames) {
+      const q = `Three cards drawn from the Psyched Luxuries tarot: ${names[0]}, ${names[1]}, and ${names[2]}. In two or three sentences, read them together as one message grounded in the brand's doctrine.`;
+      try { text = (await PLGames.oracle(q) || '').replace(/\s+/g, ' ').trim(); } catch (_) {}
+      if (text.length > 340) {
+        text = text.slice(0, 337);
+        const sp = text.lastIndexOf(' ');
+        if (sp > 260) text = text.slice(0, sp);
+        text = text.trim() + '…';
+      }
+    }
+    if (!text) text = localSynthesis();
+    elSynthText.textContent = text;
+
+    elHand.style.opacity = '1';
+    setTimeout(() => { elHand.style.opacity = '0'; }, 3000);
+  }
+
+  drawBtn.addEventListener('click', castSpread);
+  castSpread(); // auto-draw on load
+
+  /* ── p5 shimmer ──────────────────────────────────────────── */
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    let particles = [];
+    const sketch = p => {
+      p.setup = () => {
+        const cnv = p.createCanvas(p.windowWidth, p.windowHeight);
+        cnv.parent('p5-host');
+      };
+
+      p.draw = () => {
+        p.clear();
+        while (pulses.length > 0) {
+          pulses.pop();
+          for (let i = 0; i < 20; i++) {
+            particles.push({
+              x: p.random(p.windowWidth),
+              y: p.random(p.windowHeight),
+              vx: p.random(-1, 1),
+              vy: p.random(-2, -0.5),
+              alpha: 80 + p.random(60),
+              r: p.random(1, 3),
+            });
+          }
+        }
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const pt = particles[i];
+          pt.x += pt.vx; pt.y += pt.vy;
+          pt.alpha -= 2;
+          if (pt.alpha <= 0) { particles.splice(i, 1); continue; }
+          p.fill(201, 168, 76, pt.alpha);
+          p.noStroke();
+          p.ellipse(pt.x, pt.y, pt.r);
+        }
+      };
+      p.windowResized = () => p.resizeCanvas(p.windowWidth, p.windowHeight);
+    };
+    new p5(sketch);
+  });
+</script>
+</body>
+</html>

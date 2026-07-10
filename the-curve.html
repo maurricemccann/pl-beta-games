@@ -1,0 +1,787 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Curve — PL Beta Games</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js" defer></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @font-face {
+      font-family: 'PLHand';
+      src: url('fonts/MaurriceMccannPsychedHandwrit-Regular.otf') format('opentype'),
+           url('fonts/MaurriceMccannPsychedHandwrit-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --void: #F8F2E4;
+      --gold: #B8861C;
+      --gold-bright: #D4A830;
+      --gold-dim: #7A5C14;
+      --bone: #0A0A0A;
+      --ash: #3A3020;
+    }
+
+    body {
+      background: var(--void);
+      color: var(--bone);
+      font-family: 'PLHand', cursive;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 32px;
+      border-bottom: 1px solid #D4AF6A;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 10;
+    }
+
+    .back {
+      font-size: 10px;
+      letter-spacing: 0.35em;
+      color: var(--gold-dim);
+      text-decoration: none;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .back:hover { color: var(--gold); }
+
+    .title {
+      font-family: 'PLHand', cursive;
+      font-size: 18px;
+      font-weight: 400;
+      letter-spacing: 0.2em;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      color: var(--bone);
+    }
+
+    .round-counter {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      color: var(--ash);
+      text-transform: uppercase;
+    }
+
+    .canvas-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* p5 layer — behind game canvas */
+    #p5-host {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+    #p5-host canvas { display: block; width: 100% !important; height: 100% !important; }
+
+    canvas#cvs {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hud {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px;
+      gap: 20px;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .phase-text {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(18px, 3vw, 26px);
+      font-weight: 400;
+      letter-spacing: 0.1em;
+      color: var(--bone);
+      text-align: center;
+      text-shadow: 0 0 30px rgba(0,0,0,0.8);
+    }
+
+    .phase-text.gold { color: var(--gold); }
+
+    .action-btn {
+      pointer-events: all;
+      background: transparent;
+      border: 1px solid var(--gold-dim);
+      color: var(--gold);
+      font-family: 'PLHand', cursive;
+      font-size: 10px;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      padding: 14px 36px;
+      min-height: 44px;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+    }
+
+    .action-btn:hover {
+      border-color: var(--gold);
+      background: rgba(184, 134, 28, 0.05);
+      color: var(--bone);
+    }
+
+    .score-row {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .score-pip {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--gold-dim);
+      transition: background 0.3s;
+    }
+
+    .score-pip.filled {
+      background: var(--gold);
+      box-shadow: 0 0 8px var(--gold);
+    }
+
+    .final-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(248,242,228,0.96);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s;
+      z-index: 20;
+    }
+
+    .final-overlay.visible {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .final-label {
+      font-size: 10px;
+      letter-spacing: 0.5em;
+      color: var(--gold-dim);
+      text-transform: uppercase;
+    }
+
+    .final-score {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(60px, 12vw, 120px);
+      font-weight: 400;
+      color: var(--gold);
+      line-height: 1;
+    }
+
+    .final-verdict {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(16px, 3vw, 22px);
+      font-weight: 400;
+      font-style: normal;
+      color: var(--bone);
+      letter-spacing: 0.05em;
+    }
+
+    .score-breakdown {
+      display: flex;
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    .score-breakdown span {
+      font-size: 11px;
+      color: var(--ash);
+      letter-spacing: 0.1em;
+    }
+
+    .score-breakdown span.good { color: var(--gold); }
+
+    .oracle-note {
+      font-family: 'PLHand', cursive;
+      font-size: 14px;
+      font-weight: 400;
+      font-style: normal;
+      color: var(--gold-dim);
+      max-width: 480px;
+      text-align: center;
+      letter-spacing: 0.03em;
+      line-height: 1.6;
+      min-height: 22px;
+      padding: 0 24px;
+    }
+
+    .watch-this {
+      font-family: 'PLHand', cursive;
+      font-size: clamp(24px, 5vw, 40px);
+      color: var(--gold);
+      letter-spacing: 0.05em;
+      margin-top: 4px;
+    }
+
+    .final-btn {
+      background: transparent;
+      border: 1px solid var(--gold-dim);
+      color: var(--gold);
+      font-family: 'PLHand', cursive;
+      font-size: 10px;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      padding: 14px 36px;
+      min-height: 44px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .final-btn:hover {
+      border-color: var(--gold);
+      color: var(--bone);
+    }
+
+    @keyframes breathe {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(184,134,28,0); }
+      50%       { box-shadow: 0 0 18px 4px rgba(184,134,28,0.12); }
+    }
+
+    #actionBtn { animation: breathe 3s ease-in-out infinite; }
+
+    :focus-visible { outline: 2px solid var(--gold-dim); outline-offset: 3px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      #p5-host { display: none; }
+    }
+  
+    /* iOS touch — finger gestures drive the canvas, not the page */
+    html, body { overscroll-behavior: none; touch-action: none; }
+    canvas { touch-action: none; }
+  </style>
+  <!-- PL theme injection: reads accent/glyph from URL params or sessionStorage -->
+  <script id="pl-theme">
+  (function(){
+    function hexToRgb(h){h=h.replace(/^#/,'');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function clamp(v){return Math.max(0,Math.min(255,Math.round(v)));}
+    function rgbToHex(r,g,b){return'#'+[r,g,b].map(function(x){return clamp(x).toString(16).padStart(2,'0')}).join('');}
+    function lighten(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]+(255-c[0])*pct,c[1]+(255-c[1])*pct,c[2]+(255-c[2])*pct);}
+    function darken(h,pct){var c=hexToRgb(h);return rgbToHex(c[0]*(1-pct),c[1]*(1-pct),c[2]*(1-pct));}
+    function isHex(s){return /^#?[0-9a-fA-F]{6}$/.test(s);}
+    function applyAccent(accent){
+      var h=accent.startsWith('#')?accent:'#'+accent;
+      var el=document.documentElement;
+      el.style.setProperty('--gold',h);
+      el.style.setProperty('--gold-bright',lighten(h,0.18));
+      el.style.setProperty('--gold-light',lighten(h,0.14));
+      el.style.setProperty('--gold-dim',darken(h,0.25));
+      el.style.setProperty('--gold-muted',darken(h,0.12));
+    }
+    var params=new URLSearchParams(window.location.search);
+    var accent=params.get('accent')||'';
+    var glyph=params.get('glyph')||'';
+    if(accent&&isHex(accent)){
+      sessionStorage.setItem('pl_accent',accent);
+      applyAccent(accent);
+    } else {
+      var sa=sessionStorage.getItem('pl_accent');
+      if(sa&&isHex(sa)){applyAccent(sa);}
+    }
+    if(glyph){sessionStorage.setItem('pl_glyph',glyph);}
+    window.PL_GLYPH=glyph||sessionStorage.getItem('pl_glyph')||'';
+    function propagateLinks(){
+      var a=sessionStorage.getItem('pl_accent');
+      var g=sessionStorage.getItem('pl_glyph');
+      if(!a&&!g)return;
+      var links=document.querySelectorAll('a[href]');
+      links.forEach(function(el){
+        var href=el.getAttribute('href');
+        if(!href||href.startsWith('http')||href.startsWith('//')||href.startsWith('#'))return;
+        if(!href.endsWith('.html'))return;
+        if(el.dataset.plThemed)return;
+        el.dataset.plThemed='1';
+        var url=new URL(href,window.location.href);
+        if(a)url.searchParams.set('accent',a);
+        if(g)url.searchParams.set('glyph',g);
+        el.setAttribute('href',url.pathname.split('/').pop()+'?'+url.searchParams.toString());
+      });
+    }
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',propagateLinks);}else{propagateLinks();}
+  })();
+  </script><script src="pl-game-data.js"></script>
+<script src="pl-points.js" defer></script></head>
+<body>
+
+<div id="game-instructions" style="position:fixed;inset:0;z-index:1000;background:#F8F2E4;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center;">
+  <p style="font-family:'PLHand',cursive;font-size:9px;letter-spacing:0.5em;text-transform:uppercase;color:#7A5C14;margin-bottom:16px;">How to Play</p>
+  <h2 style="font-family:'PLHand',cursive;font-size:clamp(28px,6vw,52px);color:#0A0A0A;font-weight:400;margin-bottom:20px;">The Curve</h2>
+  <p style="font-family:'PLHand',cursive;font-size:clamp(14px,2vw,18px);color:#3A3020;max-width:480px;line-height:1.7;margin-bottom:32px;">Watch a bezier curve trace across the canvas. Then redraw it from memory as precisely as you can. Five rounds. The score is alignment — how closely your trace follows the original path.</p>
+  <button id="begin-btn" style="font-family:'PLHand',cursive;font-size:12px;letter-spacing:0.4em;text-transform:uppercase;padding:16px 40px;background:transparent;border:1px solid #7A5C14;color:#B8861C;cursor:pointer;">Begin</button>
+</div>
+
+<header>
+  <a class="back" href="index.html">← Games</a>
+  <span class="title">The Curve</span>
+  <span class="round-counter" id="roundCounter">Round 1 / 5</span>
+</header>
+
+<div class="canvas-wrap">
+  <div id="p5-host"></div>
+  <canvas id="cvs"></canvas>
+
+  <div class="hud">
+    <div class="score-row" id="scoreRow">
+      <div class="score-pip" id="pip0"></div>
+      <div class="score-pip" id="pip1"></div>
+      <div class="score-pip" id="pip2"></div>
+      <div class="score-pip" id="pip3"></div>
+      <div class="score-pip" id="pip4"></div>
+    </div>
+    <div class="phase-text" id="phaseText">A curve is about to appear.</div>
+    <button class="action-btn" id="actionBtn">Begin</button>
+  </div>
+
+  <div class="final-overlay" id="finalOverlay">
+    <div class="final-label">Curve Alignment</div>
+    <div class="final-score" id="finalScore">—</div>
+    <div class="final-verdict" id="finalVerdict"></div>
+    <div class="score-breakdown" id="scoreBreakdown"></div>
+    <p class="oracle-note" id="oracleNote"></p>
+    <div class="watch-this">Watch this.</div>
+    <button class="final-btn" id="finalBtn">Play Again</button>
+  </div>
+</div>
+
+<script>
+  const cvs = document.getElementById('cvs');
+  const ctx = cvs.getContext('2d');
+
+  const TOTAL_ROUNDS = 5;
+  const ANIM_DURATION = 2400;
+
+  const state = {
+    phase: 'idle',
+    round: 0,
+    scores: [],
+    bezier: null,
+    playerPts: [],
+    drawing: false,
+    animStart: null,
+    animFrame: null,
+  };
+
+  /* ── Particle trail system ───────────────────────────────────── */
+  let trailParticles = [];
+  let p5Instance = null;
+
+  function emitTrail(pts) {
+    if (!pts || pts.length < 2) return;
+    const count = 24;
+    for (let i = 0; i < count; i++) {
+      const idx = Math.floor(Math.random() * pts.length);
+      const pt = pts[idx];
+      const targetIdx = Math.max(0, idx - Math.floor(Math.random() * 20));
+      const target = pts[targetIdx] || pts[0];
+      trailParticles.push({
+        x: pt.x, y: pt.y,
+        vx: (target.x - pt.x) * 0.02 + (Math.random() - 0.5) * 0.8,
+        vy: (target.y - pt.y) * 0.02 + (Math.random() - 0.5) * 0.8,
+        life: 180,
+        maxLife: 180,
+      });
+    }
+  }
+
+  /* ── p5 layer setup ──────────────────────────────────────────── */
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const sketch = p => {
+      p.setup = () => {
+        const host = document.getElementById('p5-host');
+        p.createCanvas(host.clientWidth, host.clientHeight).parent('p5-host');
+        p.noStroke();
+      };
+
+      p.draw = () => {
+        p.clear();
+        trailParticles = trailParticles.filter(pt => pt.life > 0);
+        trailParticles.forEach(pt => {
+          const a = (pt.life / pt.maxLife);
+          const r = 3 * a;
+          p.fill(184, 134, 28, a * 180);
+          p.circle(pt.x, pt.y, r * 2);
+          pt.x += pt.vx;
+          pt.y += pt.vy;
+          pt.vy -= 0.008; // slight upward drift
+          pt.life--;
+        });
+      };
+
+      p.windowResized = () => {
+        const host = document.getElementById('p5-host');
+        p.resizeCanvas(host.clientWidth, host.clientHeight);
+      };
+    };
+
+    p5Instance = new p5(sketch);
+  });
+
+  /* ── Game logic ──────────────────────────────────────────────── */
+  function resize() {
+    const wrap = cvs.parentElement;
+    cvs.width = wrap.clientWidth;
+    cvs.height = wrap.clientHeight;
+    if (state.phase === 'idle') renderIdle();
+  }
+
+  function renderIdle() {
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+    ctx.save();
+    ctx.strokeStyle = '#D4AF6A';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < cvs.width; x += 60) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, cvs.height); ctx.stroke();
+    }
+    for (let y = 0; y < cvs.height; y += 60) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cvs.width, y); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function genBezier() {
+    const w = cvs.width, h = cvs.height;
+    const mX = 80, mY = h * 0.2;
+    const midY = h / 2;
+    return {
+      p0: { x: mX, y: midY + (Math.random() - 0.5) * (h * 0.35) },
+      p1: { x: w * 0.25 + (Math.random() - 0.5) * 60, y: mY + Math.random() * (h - 2 * mY) },
+      p2: { x: w * 0.72 + (Math.random() - 0.5) * 60, y: mY + Math.random() * (h - 2 * mY) },
+      p3: { x: w - mX, y: midY + (Math.random() - 0.5) * (h * 0.35) },
+    };
+  }
+
+  function bezierPt(b, t) {
+    const u = 1 - t;
+    return {
+      x: u*u*u*b.p0.x + 3*u*u*t*b.p1.x + 3*u*t*t*b.p2.x + t*t*t*b.p3.x,
+      y: u*u*u*b.p0.y + 3*u*u*t*b.p1.y + 3*u*t*t*b.p2.y + t*t*t*b.p3.y,
+    };
+  }
+
+  function drawBezier(b, toT, strokeColor, glowColor, lineWidth, glowBlur) {
+    const steps = Math.max(2, Math.ceil(toT * 150));
+    ctx.save();
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = glowBlur;
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = lineWidth;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (let i = 0; i <= steps; i++) {
+      const pt = bezierPt(b, (i / steps) * toT);
+      i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawDot(pt, color, glow, r) {
+    ctx.save();
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = 20;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawGuide(b, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.setLineDash([8, 10]);
+    ctx.strokeStyle = '#B8861C';
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = '#B8861C';
+    ctx.shadowBlur = 4;
+    ctx.beginPath();
+    ctx.moveTo(b.p0.x, b.p0.y);
+    ctx.bezierCurveTo(b.p1.x, b.p1.y, b.p2.x, b.p2.y, b.p3.x, b.p3.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  function drawPlayerPath(pts) {
+    if (pts.length < 2) return;
+    ctx.save();
+    ctx.shadowColor = '#3A3020';
+    ctx.shadowBlur = 10;
+    ctx.strokeStyle = 'rgba(58, 48, 32, 0.7)';
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function scoreRound(b, pts) {
+    if (pts.length < 3) return 0;
+    const N = 100;
+    let total = 0;
+    for (let i = 0; i <= N; i++) {
+      const bp = bezierPt(b, i / N);
+      let min = Infinity;
+      for (const p of pts) {
+        const d = Math.sqrt((bp.x - p.x) ** 2 + (bp.y - p.y) ** 2);
+        if (d < min) min = d;
+      }
+      total += min;
+    }
+    const avg = total / (N + 1);
+    return Math.max(0, Math.round(105 - avg * 1.3));
+  }
+
+  function verdict(avg) {
+    if (avg >= 90) return 'Perfect resonance.';
+    if (avg >= 75) return 'Strong alignment.';
+    if (avg >= 55) return 'The curve is forming.';
+    if (avg >= 35) return 'The practice has begun.';
+    return 'Begin again. The curve persists.';
+  }
+
+  function animWatch(ts) {
+    if (!state.animStart) state.animStart = ts;
+    const elapsed = ts - state.animStart;
+    const t = Math.min(elapsed / ANIM_DURATION, 1);
+
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+    drawBezier(state.bezier, t, '#B8861C', '#B8861C', 3, 18);
+    drawDot(bezierPt(state.bezier, t), '#D4A830', '#D4A830', 7);
+
+    if (t < 1) {
+      state.animFrame = requestAnimationFrame(animWatch);
+    } else {
+      setTimeout(() => {
+        state.phase = 'trace';
+        updateUI();
+        render();
+      }, 600);
+    }
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+    if (!state.bezier) return;
+
+    if (state.phase === 'trace') {
+      drawGuide(state.bezier, 0.22);
+      drawDot(state.bezier.p0, '#B8861C', '#B8861C', 9);
+      drawDot(state.bezier.p3, '#B8861C', '#B8861C', 5);
+      drawPlayerPath(state.playerPts);
+    } else if (state.phase === 'result') {
+      drawBezier(state.bezier, 1, 'rgba(184,134,28,0.5)', '#B8861C', 2, 10);
+      drawPlayerPath(state.playerPts);
+    }
+  }
+
+  function updateUI() {
+    const pt = document.getElementById('phaseText');
+    const btn = document.getElementById('actionBtn');
+    const rc = document.getElementById('roundCounter');
+
+    rc.textContent = `Round ${state.round + 1} / ${TOTAL_ROUNDS}`;
+
+    for (let i = 0; i < TOTAL_ROUNDS; i++) {
+      const pip = document.getElementById(`pip${i}`);
+      pip.className = 'score-pip' + (i < state.scores.length ? ' filled' : '');
+    }
+
+    if (state.phase === 'idle') {
+      pt.textContent = 'A curve is about to appear.';
+      pt.className = 'phase-text';
+      btn.textContent = 'Begin';
+      btn.style.display = '';
+    } else if (state.phase === 'watch') {
+      pt.textContent = 'Watch the curve.';
+      pt.className = 'phase-text';
+      btn.style.display = 'none';
+    } else if (state.phase === 'trace') {
+      pt.textContent = 'Trace it now. Hold and draw.';
+      pt.className = 'phase-text';
+      btn.style.display = 'none';
+    } else if (state.phase === 'result') {
+      const s = state.scores[state.scores.length - 1];
+      pt.textContent = `Alignment: ${s}%`;
+      pt.className = 'phase-text gold';
+      btn.textContent = state.round < TOTAL_ROUNDS - 1 ? 'Next Round' : 'Final Score';
+      btn.style.display = '';
+    }
+  }
+
+  function startRound() {
+    if (state.animFrame) { cancelAnimationFrame(state.animFrame); state.animFrame = null; }
+    state.bezier = genBezier();
+    state.playerPts = [];
+    state.drawing = false;
+    state.animStart = null;
+    state.phase = 'watch';
+    updateUI();
+    state.animFrame = requestAnimationFrame(animWatch);
+  }
+
+  function startGame() {
+    state.round = 0;
+    state.scores = [];
+    trailParticles = [];
+    document.getElementById('finalOverlay').classList.remove('visible');
+    startRound();
+  }
+
+  async function fetchOracleNote() {
+    const el = document.getElementById('oracleNote');
+    try {
+      const res = await fetch('https://pl-cron.psychedluxuries.com/api/oracle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: 'What does it mean to trace the curve exactly as it is?' }),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (!res.ok) throw new Error('fail');
+      const data = await res.json();
+      const text = (data.answer || '').slice(0, 140);
+      el.textContent = text;
+    } catch {
+      el.textContent = '';
+    }
+  }
+
+  function showFinal() {
+    const avg = Math.round(state.scores.reduce((a, b) => a + b, 0) / TOTAL_ROUNDS);
+    document.getElementById('finalScore').textContent = `${avg}%`;
+    document.getElementById('finalVerdict').textContent = verdict(avg);
+    const bd = document.getElementById('scoreBreakdown');
+    bd.innerHTML = state.scores.map((s, i) => `<span class="${s >= 60 ? 'good' : ''}">R${i+1}: ${s}%</span>`).join('');
+    document.getElementById('finalOverlay').classList.add('visible');
+    fetchOracleNote();
+  }
+
+  document.getElementById('actionBtn').addEventListener('click', () => {
+    if (state.phase === 'idle') { startGame(); return; }
+    if (state.phase === 'result') {
+      if (state.round < TOTAL_ROUNDS - 1) {
+        state.round++;
+        startRound();
+      } else {
+        showFinal();
+      }
+    }
+  });
+
+  document.getElementById('finalBtn').addEventListener('click', () => {
+    state.phase = 'idle';
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+    trailParticles = [];
+    renderIdle();
+    updateUI();
+    document.getElementById('finalOverlay').classList.remove('visible');
+  });
+
+  function getPos(e, touch) {
+    const rect = cvs.getBoundingClientRect();
+    const src = touch ? e.touches[0] : e;
+    return { x: (src.clientX - rect.left) * (cvs.width / rect.width), y: (src.clientY - rect.top) * (cvs.height / rect.height) };
+  }
+
+  function onDown(e, touch) {
+    if (state.phase !== 'trace') return;
+    state.drawing = true;
+    state.playerPts = [getPos(e, touch)];
+  }
+
+  function onMove(e, touch) {
+    if (!state.drawing || state.phase !== 'trace') return;
+    if (touch) e.preventDefault();
+    state.playerPts.push(getPos(e, touch));
+    render();
+  }
+
+  function onUp() {
+    if (!state.drawing || state.phase !== 'trace') return;
+    state.drawing = false;
+    const s = scoreRound(state.bezier, state.playerPts);
+    state.scores.push(s);
+    state.phase = 'result';
+    // Emit trail particles
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      emitTrail(state.playerPts);
+    }
+    updateUI();
+    render();
+  }
+
+  cvs.addEventListener('mousedown', e => onDown(e, false));
+  cvs.addEventListener('mousemove', e => onMove(e, false));
+  cvs.addEventListener('mouseup', onUp);
+  cvs.addEventListener('touchstart', e => { e.preventDefault(); onDown(e, true); }, { passive: false });
+  cvs.addEventListener('touchmove', e => onMove(e, true), { passive: false });
+  cvs.addEventListener('touchend', onUp);
+
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space' && state.phase === 'idle') { e.preventDefault(); startGame(); }
+  });
+
+  window.addEventListener('resize', resize);
+  resize();
+  updateUI();
+  renderIdle();
+
+  (function() {
+    const panel = document.getElementById('game-instructions');
+    if (!panel) return;
+    if (sessionStorage.getItem('pl_instructions_seen_' + location.pathname)) { panel.style.display = 'none'; return; }
+    document.getElementById('begin-btn').addEventListener('click', function() {
+      panel.style.display = 'none';
+      sessionStorage.setItem('pl_instructions_seen_' + location.pathname, '1');
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { panel.style.display = 'none'; sessionStorage.setItem('pl_instructions_seen_' + location.pathname, '1'); }
+    });
+  })();
+</script>
+</body>
+</html>
