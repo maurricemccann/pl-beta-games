@@ -63,6 +63,8 @@
       flex-direction: column;
       gap: 8px;
       width: min(480px, 88vw);
+      max-height: calc(100vh - 200px);
+      overflow-y: auto;
     }
 
     .stmt-btn {
@@ -235,7 +237,9 @@
       if (abundance >= 7 && !window._handShown) {
         window._handShown = true;
         elHand.style.opacity = '1';
-        setTimeout(() => { elHand.style.opacity = '0'; }, 3000);
+      } else if (abundance < 7 && window._handShown) {
+        window._handShown = false;
+        elHand.style.opacity = '0';
       }
     });
     elStmts.appendChild(btn);
