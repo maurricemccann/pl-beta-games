@@ -110,7 +110,7 @@
   <div id="three-host"></div>
   <nav class="nav-bar"><a class="nav-link" href="index.html">← Games</a></nav>
   <div id="seed-whisper"></div>
-  <div id="hint">Move to walk · Approach seeds to hear them</div>
+  <div id="hint">Move to walk · Approach seeds to read them</div>
   <div id="plhand">Watch this.</div>
 
 <script>
@@ -175,6 +175,9 @@
     ring.position.set(x, 0.2, z);
     ring.rotation.x = -Math.PI / 2;
     scene.add(ring);
+
+    mesh.userData.ring = ring;
+    mesh.userData.glow = 0; // 0..1, pumped on proximity trigger, decays each frame
   });
 
   // Ambient particles
@@ -213,10 +216,15 @@
     requestAnimationFrame(animate);
     frame++;
 
-    // Float seeds
+    // Float seeds + decay any proximity glow
     seedMeshes.forEach((m, i) => {
       m.position.y = m.userData.baseY + Math.sin(frame * 0.015 + i) * 2;
       m.rotation.y += 0.01;
+      if (m.userData.glow > 0.001) {
+        m.userData.glow *= 0.94;
+        m.material.opacity = 0.4 + m.userData.glow * 0.6;
+        m.userData.ring.material.opacity = 0.15 + m.userData.glow * 0.55;
+      }
     });
 
     // Move camera
@@ -238,6 +246,7 @@
 
     if (nearest && nearest.userData.phrase !== lastSeedPhrase) {
       lastSeedPhrase = nearest.userData.phrase;
+      nearest.userData.glow = 1;
       elSeed.textContent = nearest.userData.phrase;
       elSeed.style.opacity = '1';
       if (seedTimeout) clearTimeout(seedTimeout);

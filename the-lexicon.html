@@ -496,6 +496,18 @@
   const lexSketch = p => {
     let bucketW = 0;
 
+    // dt(str, x, y, opts) — p5-text helper, must live inside the sketch closure to reach `p`
+    function dt(str, x, y, { size = 13, opacity = 1, family = 'PLHand', align = 'center', base = 'middle' } = {}) {
+      p.push();
+      p.textFont(family);
+      p.textSize(size);
+      p.textAlign(align === 'center' ? p.CENTER : p.LEFT, base === 'middle' ? p.CENTER : p.TOP);
+      p.noStroke();
+      p.fill(10, 10, 10, Math.round(opacity * 255));
+      p.text(str, x, y);
+      p.pop();
+    }
+
     p.setup = () => {
       const cnv = p.createCanvas(p.windowWidth, p.windowHeight);
       cnv.parent('p5-host');
@@ -609,6 +621,15 @@
 
     function drawWords() {
       lanes.forEach((lane, i) => {
+        try {
+          drawOneWord(lane, i);
+        } catch (err) {
+          console.error('[the-lexicon] drawWords lane', i, err);
+        }
+      });
+    }
+
+    function drawOneWord(lane, i) {
         if (!lane.word) return;
         const w = lane.word;
 
@@ -674,7 +695,6 @@
         ctx.fillText(w.word, lane.x, w.y);
 
         ctx.restore();
-      });
     }
 
     function drawParticles() {
@@ -809,11 +829,6 @@
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (typeof p5 !== 'undefined' && !prefersReduced) {
     new p5(lexSketch);
-  }
-
-  // Helper: dt(str, x, y, opts) — used inside sketch but also accessible
-  function dt(str, x, y, { size = 13, opacity = 1, family = 'PLHand', weight = '400', align = 'center', base = 'middle' } = {}) {
-    // This is called within p5 sketch scope — not used here directly
   }
 
   (function() {

@@ -587,9 +587,10 @@
     const fragments = await fetchCorpus('voice language sentence', 'voice', 3);
     const rounds = [];
     for (const frag of fragments.slice(0, ROUND_COUNT)) {
-      const tokens = tokenize(frag.quote);
-      // Deduplicate, take top 10 by length
-      const unique = [...new Set(tokens)].sort((a, b) => b.length - a.length).slice(0, 10);
+      // Word bank must come from the same text as the title, in reading order —
+      // that order IS the correct answer.
+      const tokens = tokenize(frag.principle);
+      const unique = [...new Set(tokens)].slice(0, 10);
       if (unique.length < 3) continue;
       rounds.push({
         title: frag.principle.slice(0, 80),
@@ -599,8 +600,8 @@
     // Pad with fallback if needed
     while (rounds.length < ROUND_COUNT) {
       const fb = FALLBACK_CORPUS.filter(f => f.lens === 'voice')[rounds.length % 5];
-      const tokens = tokenize(fb.quote);
-      const unique = [...new Set(tokens)].sort((a, b) => b.length - a.length).slice(0, 10);
+      const tokens = tokenize(fb.principle);
+      const unique = [...new Set(tokens)].slice(0, 10);
       rounds.push({ title: fb.principle.slice(0, 80), words: unique });
     }
     return rounds;
@@ -763,7 +764,7 @@
 
     if (timeLeft <= 0 && !roundOver) {
       clearInterval(timerInterval);
-      endRound(false);
+      endRound('timeout');
     }
   }
 
@@ -826,13 +827,16 @@
   }
 
   function checkAnswer() {
-    // For corpus words, any arrangement that uses all words is accepted — score by time remaining
     clearInterval(timerInterval);
-    endRound(true);
+    const submitted = answer.map(a => a.word);
+    const correct = submitted.length === currentSeed.words.length &&
+      submitted.every((w, i) => w === currentSeed.words[i]);
+    endRound(correct ? 'correct' : 'wrong');
   }
 
-  function endRound(correct) {
+  function endRound(status) {
     roundOver = true;
+    const correct = status === 'correct';
     const score = correct ? Math.round(10 + timeLeft * 3) : 0;
     roundScores.push(score);
     totalScore += score;
@@ -851,7 +855,7 @@
     } else {
       tray.className = 'tray flash-wrong';
       fb.style.color = '#B44';
-      fb.textContent = 'Time.';
+      fb.textContent = status === 'timeout' ? 'Time.' : 'Not quite. The order matters.';
     }
 
     document.getElementById('actionBtn').style.display = '';

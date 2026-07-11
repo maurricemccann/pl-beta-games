@@ -135,6 +135,14 @@
   document.getElementById('viewer-close').onclick = () => { viewer.style.display = 'none'; };
   document.addEventListener('keydown', e => { if (e.key === 'Escape') viewer.style.display = 'none'; });
 
+  // Dead R2 URL -> solid placeholder glyph, not a browser broken-image icon (no extra network fetch)
+  const VIEWER_PLACEHOLDER = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">' +
+    '<rect width="400" height="400" fill="#F8F2E4"/>' +
+    '<text x="200" y="220" font-family="Georgia,serif" font-size="120" fill="#B8861C" text-anchor="middle">⌒</text>' +
+    '</svg>'
+  );
+
   const YEAR_META = [
     { year: 2019, min: 1,    max: 200,  label: '2019 — The Beginning',     color: 0xB8861C },
     { year: 2020, min: 201,  max: 450,  label: '2020 — Despite Everything', color: 0x9A7010 },
@@ -319,6 +327,7 @@
       const sp = hits[0].object;
       const d  = spriteData.find(x => x.sprite === sp);
       if (d) {
+        vImg.onerror = () => { vImg.onerror = null; vImg.src = VIEWER_PLACEHOLDER; };
         vImg.src = d.url;
         vImg.alt = `Piece ${d.num}`;
         vCap.textContent = `Piece ${d.num} · ${d.year}`;
