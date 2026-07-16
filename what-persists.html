@@ -620,6 +620,25 @@
     const seen = new Set();
     const rounds = [];
 
+    // REAL founder phrases first (PLGames spine, S142 — /api/search returns ok-but-empty,
+    // so the doctrine path below has silently served canned fallback since day one).
+    if (window.PLGames && PLGames.seeds) {
+      try {
+        const sds = await PLGames.seeds(TOTAL_ROUNDS + 2);
+        for (const sd of sds) {
+          const parts = (sd.phrase || '').split('—');
+          const name = (parts.length > 1 ? parts[0] : 'Seed').trim();
+          const sentence = parts.pop().trim();
+          const words = sentence.split(/\s+/).filter(Boolean);
+          if (words.length >= 3 && words.length <= 12 && !seen.has(sentence)) {
+            seen.add(sentence);
+            rounds.push({ title: name, words });
+          }
+        }
+      } catch (_) { /* fall through */ }
+      if (rounds.length >= TOTAL_ROUNDS) return rounds.slice(0, TOTAL_ROUNDS);
+    }
+
     try {
       const fetched = await Promise.allSettled(queries.map(q => fetchDoctrineFragment(q)));
       for (const res of fetched) {

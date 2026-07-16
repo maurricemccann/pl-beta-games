@@ -450,6 +450,17 @@
   /* ── Fetch phrases ───────────────────────────────────────── */
   async function loadPhrases() {
     const pool = [...VAULT_PHRASES];
+    // REAL founder phrases first (PLGames spine, S142 — the /api/search source below
+    // returns ok-but-empty, so this game has been running on its canned pool alone).
+    if (window.PLGames && PLGames.seeds) {
+      try {
+        const sds = await PLGames.seeds(10);
+        sds.forEach(sd => {
+          const sentence = (sd.phrase || '').split('—').pop().trim().replace(/[“”‘’"]/g, '');
+          if (sentence) pool.push(sentence);
+        });
+      } catch (_) {}
+    }
     try {
       const r = await fetch(
         'https://pl-cron.psychedluxuries.com/api/search?q=reality+mind+practice&lens=doctrine&limit=10',

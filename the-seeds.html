@@ -582,10 +582,24 @@
     }
   }
 
-  /* Build seed rounds from corpus fragments */
+  /* Build seed rounds — REAL founder seed phrases first (PLGames spine, S142: /api/search
+     was found returning ok-but-empty, so the corpus path silently ran on canned fallback
+     since day one; /api/game/seeds is the purpose-built real source), corpus/fallback kept. */
   async function buildRoundsFromCorpus() {
-    const fragments = await fetchCorpus('voice language sentence', 'voice', 3);
     const rounds = [];
+    if (window.PLGames && PLGames.seeds) {
+      try {
+        const sds = await PLGames.seeds(ROUND_COUNT);
+        for (const sd of sds) {
+          const sentence = (sd.phrase || '').split('—').pop().trim();
+          const tokens = tokenize(sentence);
+          const unique = [...new Set(tokens)].slice(0, 10);
+          if (unique.length >= 3) rounds.push({ title: sentence.slice(0, 80), words: unique });
+        }
+      } catch (_) { /* fall through to corpus path */ }
+    }
+    if (rounds.length >= ROUND_COUNT) return rounds.slice(0, ROUND_COUNT);
+    const fragments = await fetchCorpus('voice language sentence', 'voice', 3);
     for (const frag of fragments.slice(0, ROUND_COUNT)) {
       // Word bank must come from the same text as the title, in reading order —
       // that order IS the correct answer.
