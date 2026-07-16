@@ -620,18 +620,32 @@
     });
   });
 
-  function populateSeeds(cat) {
-    const labels = { abundance: 'Abundance', clarity: 'Clarity', sovereignty: 'Sovereignty' };
-    document.getElementById('seedCatLabel').textContent = labels[cat];
-    const list = document.getElementById('seedsList');
+  function renderSeedOptions(list, seedArr) {
     list.innerHTML = '';
-    CATEGORY_SEEDS[cat].forEach(seed => {
+    seedArr.forEach(seed => {
       const opt = document.createElement('div');
       opt.className = 'seed-option';
       opt.innerHTML = `<div class="seed-option-title">${seed.title}</div><div class="seed-option-text">${seed.text}</div>`;
       opt.addEventListener('click', () => startHold(seed.text));
       list.appendChild(opt);
     });
+  }
+
+  function populateSeeds(cat) {
+    const labels = { abundance: 'Abundance', clarity: 'Clarity', sovereignty: 'Sovereignty' };
+    document.getElementById('seedCatLabel').textContent = labels[cat];
+    const list = document.getElementById('seedsList');
+    renderSeedOptions(list, CATEGORY_SEEDS[cat]); // fallback shown instantly, no blank wait
+    if (window.PLGames && PLGames.seeds) {
+      PLGames.seeds(5).then(real => {
+        if (!real || !real.length) return;
+        const mapped = real.map(s => {
+          const parts = String(s.phrase || '').split(/\s*\u2014\s*/);
+          return { title: parts[0] || 'Seed', text: parts.slice(1).join(' \u2014 ') || s.phrase || '' };
+        });
+        renderSeedOptions(list, mapped);
+      });
+    }
   }
 
   let holdInterval = null;

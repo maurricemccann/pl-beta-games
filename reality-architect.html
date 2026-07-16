@@ -708,7 +708,12 @@
       'This is architecture. The reality is buildable.',
       'Exceptional clarity. This is a command, not a wish.',
     ];
-    document.getElementById('bpVerdict').textContent = verdicts[Math.min(Math.floor(totalScore / 25), verdicts.length - 1)];
+    const bpVerdictEl = document.getElementById('bpVerdict');
+    bpVerdictEl.textContent = verdicts[Math.min(Math.floor(totalScore / 25), verdicts.length - 1)];
+    if (window.PLGames) {
+      PLGames.oracle(`In one short sentence, in the Psyched Luxuries voice, give a verdict on this reality architecture \u2014 Self: "${inputs['self']}" Wealth: "${inputs['wealth']}" World: "${inputs['world']}" (clarity score ${totalScore}%).`)
+        .then(answer => { if (answer) bpVerdictEl.textContent = answer; });
+    }
 
     const now = new Date();
     document.getElementById('blueprintCard').dataset.date = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -719,12 +724,12 @@
     // Trigger connection arc pulse after layout paints
     requestAnimationFrame(() => requestAnimationFrame(() => triggerConnectionPulse()));
 
-    try {
-      localStorage.setItem('pl_reality_arch', JSON.stringify({
-        self: inputs['self'], wealth: inputs['wealth'], world: inputs['world'],
-        score: totalScore, date: now.toISOString(),
-      }));
-    } catch(e) {}
+    const blueprintData = {
+      self: inputs['self'], wealth: inputs['wealth'], world: inputs['world'],
+      score: totalScore, date: now.toISOString(),
+    };
+    if (window.PLGames) PLGames.save('reality-architect', blueprintData);
+    else try { localStorage.setItem('pl_reality_arch', JSON.stringify(blueprintData)); } catch(e) {}
   }
 
   function showScreen(id) {

@@ -151,10 +151,11 @@
   ground.rotation.x = -Math.PI / 2;
   scene.add(ground);
 
-  // Seed orbs scattered in the space
+  // Seed orbs scattered in the space — real seeds first, hardcoded array is the offline fallback
   const seedMeshes = [];
-  SANCTUARY_SEEDS.forEach((phrase, i) => {
-    const angle = (i / SANCTUARY_SEEDS.length) * Math.PI * 2;
+  function buildSeeds(phrases) {
+  phrases.forEach((phrase, i) => {
+    const angle = (i / phrases.length) * Math.PI * 2;
     const r     = 30 + (i % 3) * 20;
     const x     = Math.cos(angle) * r;
     const z     = Math.sin(angle) * r;
@@ -179,6 +180,13 @@
     mesh.userData.ring = ring;
     mesh.userData.glow = 0; // 0..1, pumped on proximity trigger, decays each frame
   });
+  }
+
+  (window.PLGames ? PLGames.seeds(SANCTUARY_SEEDS.length) : Promise.resolve([]))
+    .then(function (real) {
+      var phrases = (real && real.length) ? real.map(function (s) { return s.phrase; }) : SANCTUARY_SEEDS;
+      buildSeeds(phrases);
+    });
 
   // Ambient particles
   const aCount = 300;

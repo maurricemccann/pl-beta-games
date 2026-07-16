@@ -326,6 +326,7 @@
   <p class="overlay-law">Session Complete</p>
   <div class="go-score-big" id="goScore">0</div>
   <div class="go-verdict" id="goVerdict"></div>
+  <p class="go-verdict" id="goOracle" style="font-size:12px;opacity:0.75;max-width:380px;"></p>
   <button class="btn" id="restartBtn">Sort Again</button>
   <div class="watch-this">Watch this.</div>
 </div>
@@ -432,6 +433,16 @@
     const vIdx = score < 50 ? 0 : score < 150 ? 1 : score < 250 ? 2 : score < 350 ? 3 : 4;
     document.getElementById('goVerdict').textContent = verdicts[vIdx];
     document.getElementById('gameoverScreen').classList.add('visible');
+    fetchLexOracleNote();
+  }
+
+  async function fetchLexOracleNote() {
+    const el = document.getElementById('goOracle');
+    if (!el) return;
+    const text = window.PLGames
+      ? await PLGames.oracle('What does it mean to sort a word to its true cluster?')
+      : '';
+    el.textContent = (text || '').slice(0, 140);
   }
 
   function spawnInLane(laneIdx) {

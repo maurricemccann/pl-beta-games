@@ -447,6 +447,11 @@
         elWin.style.opacity  = '0';
         elOvSub.textContent  = `${score} resonance points`;
         elOverlay.classList.add('visible');
+        if (window.PLGames) {
+          PLGames.seed().then(function (s) {
+            if (s && s.phrase) document.getElementById('overlay-hand').textContent = s.phrase;
+          });
+        }
       }, 2000);
     }
 

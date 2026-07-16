@@ -175,6 +175,24 @@
   ];
 
   const elHand = document.getElementById('plhand-end');
+  const FALLBACK_END = elHand.textContent;
+  let endPhrase = FALLBACK_END;
+  if (window.PLGames) PLGames.seed().then(function (s) { if (s && s.phrase) endPhrase = s.phrase; });
+
+  let SEED_FRAGMENTS = [];
+  if (window.PLGames) {
+    PLGames.seeds(16).then(function (seeds) {
+      // ponytail: lens assigned randomly, no semantic classifier
+      SEED_FRAGMENTS = (seeds || [])
+        .map(function (s) {
+          var w = (s.phrase || '').split('\u2014')[0].trim().split(/\s+/)[0];
+          if (!w) return null;
+          var lens = LENSES[Math.floor(Math.random() * LENSES.length)];
+          return { text: w.toUpperCase(), lens: lens.id };
+        })
+        .filter(Boolean);
+    });
+  }
 
   const sketch = p => {
     const W = () => p.windowWidth;
@@ -209,7 +227,7 @@
     };
 
     function spawnItem() {
-      const all = [...ALL_WORDS, ...FALLBACK_FRAGMENTS];
+      const all = SEED_FRAGMENTS.length ? SEED_FRAGMENTS : [...ALL_WORDS, ...FALLBACK_FRAGMENTS];
       const item = all[Math.floor(Math.random() * all.length)];
       const isTarget = item.lens === activeLens.id;
       items.push({
@@ -392,6 +410,7 @@
     function showHand() {
       if (handShown) return;
       handShown = true;
+      elHand.textContent = endPhrase;
       elHand.style.opacity = '1';
       setTimeout(() => { elHand.style.opacity = '0'; }, 3000);
     }

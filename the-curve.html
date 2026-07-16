@@ -674,20 +674,10 @@
 
   async function fetchOracleNote() {
     const el = document.getElementById('oracleNote');
-    try {
-      const res = await fetch('https://pl-cron.psychedluxuries.com/api/oracle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: 'What does it mean to trace the curve exactly as it is?' }),
-        signal: AbortSignal.timeout(6000),
-      });
-      if (!res.ok) throw new Error('fail');
-      const data = await res.json();
-      const text = (data.answer || '').slice(0, 140);
-      el.textContent = text;
-    } catch {
-      el.textContent = '';
-    }
+    const text = window.PLGames
+      ? await PLGames.oracle('What does it mean to trace the curve exactly as it is?')
+      : '';
+    el.textContent = (text || '').slice(0, 140);
   }
 
   function showFinal() {

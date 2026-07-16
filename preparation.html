@@ -391,12 +391,16 @@
   const elFinalR  = document.getElementById('finalRounds');
   const elAgain   = document.getElementById('finalAgain');
 
+  let REAL_PHRASES = [];
+  if (window.PLGames) PLGames.seeds(10).then(list => { REAL_PHRASES = (list || []).map(s => s.phrase).filter(Boolean); });
+
   function getPrinciple() {
-    if (usedIdx.size >= FALLBACK_CORPUS.length) usedIdx.clear();
+    const corpus = REAL_PHRASES.length ? REAL_PHRASES : FALLBACK_CORPUS;
+    if (usedIdx.size >= corpus.length) usedIdx.clear();
     let i;
-    do { i = Math.floor(Math.random() * FALLBACK_CORPUS.length); } while (usedIdx.has(i));
+    do { i = Math.floor(Math.random() * corpus.length); } while (usedIdx.has(i));
     usedIdx.add(i);
-    return FALLBACK_CORPUS[i];
+    return corpus[i];
   }
 
   function armRound() {

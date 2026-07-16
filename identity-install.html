@@ -184,7 +184,7 @@
   <div id="plhand-end">Identity installed.</div>
 
 <script>
-  const ABUNDANCE_STMTS = [
+  const FALLBACK_ABUNDANCE_STMTS = [
     "I am prepared for luxury.",
     "I am in control of my reality.",
     "What I hold in mind becomes real.",
@@ -196,6 +196,7 @@
     "I am the monarch of my timeline.",
     "Growth is the most luxurious act.",
   ];
+  let ABUNDANCE_STMTS = FALLBACK_ABUNDANCE_STMTS;
   const SCARCITY_STMTS = [
     "I am not ready yet.",
     "The conditions are wrong.",
@@ -207,46 +208,55 @@
     "I am behind.",
   ];
 
-  const ALL = [
-    ...ABUNDANCE_STMTS.map(t => ({ text: t, type: 'abundance' })),
-    ...SCARCITY_STMTS.map(t => ({ text: t, type: 'scarcity'  })),
-  ].sort(() => Math.random() - 0.5);
-
   const elHand = document.getElementById('plhand-end');
   const elStmts = document.getElementById('statements');
   let abundance = 0;
   let totalClicks = 0;
 
-  // render buttons
-  ALL.forEach(item => {
-    const btn = document.createElement('button');
-    btn.className = 'stmt-btn';
-    btn.textContent = item.text;
-    btn.dataset.type = item.type;
-    btn.addEventListener('click', () => {
-      btn.classList.toggle(item.type);
-      if (btn.classList.contains(item.type)) {
-        if (item.type === 'abundance') abundance++;
-        totalClicks++;
-      } else {
-        if (item.type === 'abundance') abundance--;
-        totalClicks--;
-      }
-      // signal canvas
-      window._identityState = { abundance, total: ABUNDANCE_STMTS.length };
-      if (abundance >= 7 && !window._handShown) {
-        window._handShown = true;
-        elHand.style.opacity = '1';
-      } else if (abundance < 7 && window._handShown) {
-        window._handShown = false;
-        elHand.style.opacity = '0';
-      }
-    });
-    elStmts.appendChild(btn);
-  });
+  function renderStatements() {
+    const threshold = Math.max(1, Math.ceil(ABUNDANCE_STMTS.length * 0.7));
+    const ALL = [
+      ...ABUNDANCE_STMTS.map(t => ({ text: t, type: 'abundance' })),
+      ...SCARCITY_STMTS.map(t => ({ text: t, type: 'scarcity'  })),
+    ].sort(() => Math.random() - 0.5);
 
-  window._identityState = { abundance: 0, total: ABUNDANCE_STMTS.length };
-  window._handShown = false;
+    ALL.forEach(item => {
+      const btn = document.createElement('button');
+      btn.className = 'stmt-btn';
+      btn.textContent = item.text;
+      btn.dataset.type = item.type;
+      btn.addEventListener('click', () => {
+        btn.classList.toggle(item.type);
+        if (btn.classList.contains(item.type)) {
+          if (item.type === 'abundance') abundance++;
+          totalClicks++;
+        } else {
+          if (item.type === 'abundance') abundance--;
+          totalClicks--;
+        }
+        // signal canvas
+        window._identityState = { abundance, total: ABUNDANCE_STMTS.length };
+        if (abundance >= threshold && !window._handShown) {
+          window._handShown = true;
+          elHand.style.opacity = '1';
+        } else if (abundance < threshold && window._handShown) {
+          window._handShown = false;
+          elHand.style.opacity = '0';
+        }
+      });
+      elStmts.appendChild(btn);
+    });
+
+    window._identityState = { abundance: 0, total: ABUNDANCE_STMTS.length };
+    window._handShown = false;
+  }
+
+  // real founder seed phrases first; canned affirmations as offline fallback (S142)
+  (window.PLGames ? window.PLGames.seeds(10) : Promise.resolve([])).then(real => {
+    if (real && real.length) ABUNDANCE_STMTS = real.map(s => s.phrase).filter(Boolean);
+    if (!ABUNDANCE_STMTS.length) ABUNDANCE_STMTS = FALLBACK_ABUNDANCE_STMTS;
+    renderStatements();
+  });
 
   /* ── p5 field — expands with abundance, contracts with scarcity ── */
   const sketch = p => {

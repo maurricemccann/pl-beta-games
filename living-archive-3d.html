@@ -216,10 +216,7 @@
   async function loadArchiveImages() {
     elLoad.textContent = 'Loading archive...';
     try {
-      const resp = await fetch('https://pub-4420dc4349624d6bbed7eb9555f42661.r2.dev/manifest.json');
-      if (!resp.ok) throw new Error('manifest error');
-      const data = await resp.json();
-      const pieces = (data && data.pieces) || [];
+      const pieces = window.PLGames ? await window.PLGames.loadArchive() : [];
       if (!pieces.length) throw new Error('empty manifest');
 
       // Group pieces by year (year derived from piece number n)

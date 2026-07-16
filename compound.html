@@ -325,6 +325,16 @@
     { val: 2048, label: 'Year 7',   phrase: 'Watch this.' },
   ];
 
+  // Real founder seed phrases replace the canned lines above when the API answers;
+  // hardcoded lines stay as offline fallback (S142 real-data wiring).
+  if (window.PLGames) {
+    PLGames.seeds(STAGES.length).then(function (real) {
+      real.forEach(function (s, i) {
+        if (s && s.phrase && STAGES[i]) STAGES[i].phrase = s.phrase;
+      });
+    });
+  }
+
   const SIZE = 4;
   let board, score, currentStage, pulses, mergeFlash;
 

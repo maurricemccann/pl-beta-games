@@ -146,8 +146,20 @@
 
 <script>
   const elHand = document.getElementById('plhand-end');
+  const FALLBACK_END = elHand.textContent;
+  let endPhrase = FALLBACK_END;
+  if (window.PLGames) PLGames.seed().then(function (s) { if (s && s.phrase) endPhrase = s.phrase; });
 
-  const OBSTACLES = ['INTERFERENCE','DOUBT','DISTRACTION','FEAR','NOISE','RESISTANCE','DELAY'];
+  const OBSTACLES_FALLBACK = ['INTERFERENCE','DOUBT','DISTRACTION','FEAR','NOISE','RESISTANCE','DELAY'];
+  let OBSTACLES = OBSTACLES_FALLBACK;
+  if (window.PLGames) {
+    PLGames.seeds(7).then(function (seeds) {
+      var names = (seeds || [])
+        .map(function (s) { return (s.phrase || '').split('\u2014')[0].trim().toUpperCase(); })
+        .filter(Boolean);
+      if (names.length) OBSTACLES = names;
+    });
+  }
 
   const sketch = p => {
     const W = () => p.windowWidth;
@@ -208,6 +220,9 @@
       const cnv = p.createCanvas(W(), H());
       cnv.parent('canvas-host');
       bestDays = parseInt(localStorage.getItem('practice_best') || '0');
+      if (window.PLGames) {
+        PLGames.load('the-practice').then(function (d) { if (d && d.best > bestDays) bestDays = d.best; });
+      }
       reset();
     };
 
@@ -284,9 +299,11 @@
         if (days > bestDays) {
           bestDays = days;
           localStorage.setItem('practice_best', bestDays);
+          if (window.PLGames) PLGames.save('the-practice', { best: bestDays });
         }
         if (!handShown) {
           handShown = true;
+          elHand.textContent = endPhrase;
           elHand.style.opacity = '1';
           setTimeout(() => { elHand.style.opacity = '0'; }, 3000);
         }
