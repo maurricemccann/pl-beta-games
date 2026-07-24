@@ -653,7 +653,7 @@
     } catch (_) { /* fall to fallback */ }
 
     if (rounds.length < TOTAL_ROUNDS) {
-      const fallback = shuffle([...FALLBACK_CORPUS]).filter(f => !seen.has(f.principle));
+      const fallback = PLGames.shuffle([...FALLBACK_CORPUS]).filter(f => !seen.has(f.principle));
       while (rounds.length < TOTAL_ROUNDS && fallback.length > 0) {
         const f = fallback.shift();
         rounds.push({ title: f.fragment, words: f.principle.trim().split(/\s+/) });
@@ -679,14 +679,6 @@
   let countdownInterval = null;
   const fieldEl        = document.getElementById('field');
 
-  function shuffle(arr) {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
 
   async function startGame() {
     const btn = document.getElementById('startBtn');
@@ -712,7 +704,7 @@
     roundOver   = false;
     answer      = [];
     currentSeed = gameRounds[currentRound];
-    bankWords   = shuffle([...currentSeed.words]);
+    bankWords   = PLGames.shuffle([...currentSeed.words]);
 
     document.getElementById('roundStat').textContent     = `${currentRound + 1}/${TOTAL_ROUNDS}`;
     document.getElementById('recallFeedback').textContent = '';

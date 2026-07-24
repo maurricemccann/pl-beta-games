@@ -36,10 +36,13 @@
       return out;
     });
   }
-  function piecesBy(field, value) {
-    return loadArchive().then(function (p) {
-      return p.filter(function (x) { return String(x[field] || '').toLowerCase() === String(value).toLowerCase(); });
-    });
+  function shuffle(arr) {
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
   }
 
   function seeds(n) {
@@ -85,7 +88,7 @@
     loadArchive: loadArchive,
     randomPiece: randomPiece,
     randomPieces: randomPieces,
-    piecesBy: piecesBy,
+    shuffle: shuffle,
     seeds: seeds,
     seed: seed,
     oracle: oracle,

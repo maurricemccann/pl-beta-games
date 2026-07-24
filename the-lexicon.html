@@ -352,19 +352,11 @@
 
   const FALSE_WORDS = ['office','clock','window','table','simple','answer','paper','glass','random','default'];
 
-  function shuffle(arr) {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
 
   function buildWordQueue() {
     const pool = LEXICON.flatMap(c => c.words.map(w => ({ word: w, clusterId: c.id, isFalse: false })));
-    const real = shuffle(pool).slice(0, 25);
-    const falsePool = shuffle(FALSE_WORDS).slice(0, 5).map(w => ({ word: w, clusterId: null, isFalse: true }));
+    const real = PLGames.shuffle(pool).slice(0, 25);
+    const falsePool = PLGames.shuffle(FALSE_WORDS).slice(0, 5).map(w => ({ word: w, clusterId: null, isFalse: true }));
 
     // Mix false words into positions 20–29
     const queue = [...real];

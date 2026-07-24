@@ -347,19 +347,10 @@
   const elHand      = document.getElementById('plhand-end');
   const drawBtn     = document.getElementById('draw-btn');
 
-  function shuffle(arr) {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
-
   /* NOTE: must NOT be named draw() — p5.js claims the global draw() as its
      60fps render loop, which would re-deal the spread every frame. */
   function castSpread() {
-    drawn  = shuffle(DECK).slice(0, 3);
+    drawn  = PLGames.shuffle(DECK).slice(0, 3);
     revealed = 0;
     elSpread.innerHTML = '';
     elSynth.classList.remove('visible');

@@ -691,14 +691,6 @@
   let roundOver = false;
   let gameLoading = false;
 
-  function shuffle(arr) {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
 
   async function startGame() {
     if (gameLoading) return;
@@ -746,7 +738,7 @@
     roundOver = false;
     answer = [];
     currentSeed = rounds[currentRound];
-    bankWords = shuffle([...currentSeed.words]);
+    bankWords = PLGames.shuffle([...currentSeed.words]);
     timeLeft = ROUND_TIME;
 
     document.getElementById('seedTitle').textContent = currentSeed.title;
