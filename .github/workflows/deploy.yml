@@ -13,8 +13,13 @@ jobs:
       deployments: write
     steps:
       - uses: actions/checkout@v4
+      # --branch=main is forced: the CF Pages project's Production branch is set to
+      # "main", but this repo's actual default branch is "master" — without the
+      # override, wrangler auto-detects "master" and every deploy lands as Preview,
+      # never promoted to Production. Found live 2026-07-24: Production was stuck on
+      # a week-old commit despite every push since reporting CI success.
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: 9a78b9ce9f9292b8c2dab3b8f9c45b24
-          command: pages deploy . --project-name=pl-beta-games
+          command: pages deploy . --project-name=pl-beta-games --branch=main
